@@ -24,6 +24,7 @@ Bemi stands for "beginner mindset" and is pronounced as [ˈbɛmɪ].
 * [Installation](#installation)
 * [Alternatives](#alternatives)
 * [License](#license)
+* [Code of Conduct](#code-of-conduct)
 
 ## Overview
 
@@ -464,7 +465,7 @@ Bemi orchestrates workflows instead of trying to choreograph them. This makes it
 
 #### Workflow orchestration tools and services
 
-Tools like Temporal, AWS Step Functions, Argo Workflows, and Airflow allow orchestrating workflows, although they use quite different approaches. 
+Tools like Temporal, AWS Step Functions, Argo Workflows, and Airflow allow orchestrating workflows, although they use quite different approaches.
 
 Temporal was born based on challenges faced by big-tech and enterprise companies. As a result, it has a complex architecture with deployed clusters, different databases like Cassandra and optional Elasticsearch, and multiple services for frontend, matching, history, etc. It was initially designed for programming languages like Java and Go. Some would argue that the development and user experience are quite rough. Plus, at the time of this writing, it doesn't have an official stable SDK for our favorite programming language (Ruby).
 
@@ -482,3 +483,7 @@ There are many libraries that also implement useful patterns and allow better or
 ## License
 
 The gem is available as open source under the terms of the [MIT License](http://opensource.org/licenses/MIT).
+
+## Code of Conduct
+
+Everyone interacting in the Bemi project's codebases, issue trackers, chat rooms and mailing lists is expected to follow the [code of conduct](https://github.com/exAspArk/bemi/blob/master/CODE_OF_CONDUCT.md).
