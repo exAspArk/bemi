@@ -12,6 +12,10 @@ class Bemi::ApplicationRecord < Bemi::Config.configuration.fetch(:storage_parent
   def generate_uuid
     self.id = SecureRandom.uuid if id.nil?
   end
+
+  def deep_symbolize_attribute_keys(attribute)
+    self[attribute].is_a?(Hash) ? self[attribute].deep_symbolize_keys : self[attribute]
+  end
 end
 
 # t.uuid :id, primary_key: true
@@ -23,15 +27,15 @@ class Bemi::WorkflowDefinition < Bemi::ApplicationRecord
   self.table_name = 'bemi_workflow_definitions'
 
   def actions
-    self[:actions].deep_symbolize_keys
+    deep_symbolize_attribute_keys(:actions)
   end
 
   def concurrency
-    self[:concurrency].deep_symbolize_keys
+    deep_symbolize_attribute_keys(:concurrency)
   end
 
   def context_schema
-    self[:context_schema].deep_symbolize_keys
+    deep_symbolize_attribute_keys(:context_schema)
   end
 end
 
@@ -45,12 +49,82 @@ end
 class Bemi::WorkflowInstance < Bemi::ApplicationRecord
   self.table_name = 'bemi_workflow_instances'
 
+  STATUS_PENDING = 'pending'
+  STATUS_RUNNING = 'running'
+  STATUS_COMPLETED = 'completed'
+  STATUS_FAILED = 'failed'
+  STATUS_TIMED_OUT = 'timed_out'
+  STATUS_CANCELED = 'canceled'
+
+  after_initialize :set_default_status
+
   def definition
-    self[:definition].deep_symbolize_keys
+    deep_symbolize_attribute_keys(:definition)
   end
 
   def context
-    self[:context].deep_symbolize_keys
+    deep_symbolize_attribute_keys(:context)
+  end
+
+  private
+
+  def set_default_status
+    self.status = STATUS_PENDING if status.nil?
+  end
+end
+
+# t.uuid :id, primary_key: true
+# t.string :name, null: false, index: true
+# t.string :status, null: false, index: true
+# t.uuid :workflow_instance_id, null: false, index: true
+# t.uuid :retry_action_instance_id, index: true
+# t.integer :retry_count, null: false, default: 0
+# t.json :input
+# t.json :output
+# t.json :context
+# t.json :custom_errors
+# t.json :rollback_output
+# t.text :logs
+# t.string :concurrency_key, index: true
+# t.timestamp :run_at
+# t.timestamp :started_at
+# t.timestamp :finished_at
+class Bemi::ActionInstance < Bemi::ApplicationRecord
+  self.table_name = 'bemi_action_instances'
+
+  STATUS_PENDING = 'pending'
+  STATUS_RUNNING = 'running'
+  STATUS_COMPLETED = 'completed'
+  STATUS_FAILED = 'failed'
+  STATUS_TIMED_OUT = 'timed_out'
+  STATUS_CANCELED = 'canceled'
+
+  after_initialize :set_default_status
+
+  def input
+    deep_symbolize_attribute_keys(:input)
+  end
+
+  def output
+    deep_symbolize_attribute_keys(:output)
+  end
+
+  def context
+    deep_symbolize_attribute_keys(:context)
+  end
+
+  def custom_errors
+    deep_symbolize_attribute_keys(:custom_errors)
+  end
+
+  def rollback_output
+    deep_symbolize_attribute_keys(:rollback_output)
+  end
+
+  private
+
+  def set_default_status
+    self.status = STATUS_PENDING if status.nil?
   end
 end
 
@@ -68,14 +142,25 @@ class Bemi::Storage::ActiveRecord
     end
 
     def create_workflow!(workflow_definition, context)
-      workflow = Bemi::WorkflowInstance.create!(
+      Bemi::WorkflowInstance.create!(
         name: workflow_definition.name,
         definition: workflow_definition.attributes,
         status: :pending,
         context: context,
       )
+    end
 
-      workflow
+    def find_workflow!(id)
+      Bemi::WorkflowInstance.find(id)
+    end
+
+    def create_action!(action_name, workflow, input)
+      Bemi::ActionInstance.create!(
+        name: action_name,
+        status: :pending,
+        workflow_instance_id: workflow.id,
+        input: input,
+      )
     end
   end
 end

@@ -3,6 +3,7 @@
 class Bemi::Registrator
   DuplicateWorkflowNameError = Class.new(StandardError)
   DuplicateActionNameError = Class.new(StandardError)
+  NoActionFoundError = Class.new(StandardError)
 
   class << self
     def sync_workflows!(files)
@@ -24,6 +25,13 @@ class Bemi::Registrator
 
       validate_action_name_uniqueness!(action_name)
       @action_class_by_name[action_name] = action_class
+    end
+
+    def find_action_class!(action_name)
+      action_class = @action_class_by_name[action_name]
+      raise NoActionFoundError, "Action '#{action_name}' is not found" if !action_class
+
+      action_class
     end
 
     private

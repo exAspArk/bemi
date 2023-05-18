@@ -10,15 +10,28 @@ class CreateUserAction < Bemi::Action
   end
 
   output array: :object do
-    field :attribute, :string
+    field :id, :string
   end
 
-  around_perform :test_around_perform
+  around_perform :test_around_perform1
+  around_perform :test_around_perform2
   around_rollback :test_around_rollback
+
+  def perform
+    context[:tags] << 'perform'
+    [{ id: 'id' }]
+  end
 
   private
 
-  def test_around_perform(&block)
+  def test_around_perform1(&block)
+    context[:tags] ||= []
+    context[:tags] << 'around_perform1'
+    block.call
+  end
+
+  def test_around_perform2(&block)
+    context[:tags] << 'around_perform2'
     block.call
   end
 

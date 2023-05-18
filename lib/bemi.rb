@@ -19,5 +19,9 @@ class Bemi
     def perform_workflow(workflow_name, context: {})
       Bemi::Runner.perform_workflow(workflow_name, context: context)
     end
+
+    def perform_action(action_name, workflow_id:, input: {})
+      Bemi::Runner.perform_action(action_name, workflow_id: workflow_id, input: input)
+    end
   end
 end

@@ -19,7 +19,7 @@ module Bemi::Modules
       return if !options[:required]
 
       @schema_acc[:required] ||= []
-      @schema_acc[:required] << name
+      @schema_acc[:required] << name.to_s
     end
 
     private
@@ -30,9 +30,9 @@ module Bemi::Modules
 
     def schema_type(type)
       if array_type?(type)
-        { type: :array, items: { type: type[:array] } }
+        { type: 'array', items: { type: type[:array].to_s } }
       else
-        { type: type }
+        { type: type.to_s }
       end
     end
   end

@@ -22,6 +22,8 @@ class Bemi::Validator
     private
 
     def unsupported_fields_errors(values, schema)
+      return [] if !values.is_a?(Hash)
+
       values.flat_map do |key, value|
         if schema.dig(:properties, key).nil?
           "The field '#{key}' is not supported"

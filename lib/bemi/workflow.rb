@@ -62,7 +62,10 @@ class Bemi::Workflow
 
     def concurrency(concurrency_options)
       validate_concurrency_options!(concurrency_options)
-      @concurrency_options = concurrency_options
+
+      @concurrency_options = concurrency_options.merge(
+        on_conflict: concurrency_options[:on_conflict].to_s,
+      )
     end
 
     def context(type, options = {}, &block)

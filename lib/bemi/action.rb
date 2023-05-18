@@ -4,6 +4,8 @@ class Bemi::Action
   class << self
     include Bemi::Modules::Schemable
 
+    attr_reader :around_perform_method_names, :input_schema, :context_schema, :output_schema
+
     def name(action_name)
       @action_name = action_name
       Bemi::Registrator.add_action(action_name, self)
@@ -32,13 +34,37 @@ class Bemi::Action
     end
   end
 
-  # input
-  # output
-  # context
-  # workflow
+  attr_reader :workflow, :input, :context, :output, :rollback_output
+
+  def initialize(workflow:, input:)
+    @workflow = workflow
+    @input = input.freeze
+    @context = {}
+  end
+
+  def perform_with_callbacks
+    perform_block = proc do
+      @output = perform
+    end
+
+    self.class.around_perform_method_names&.each do |method_name|
+      perform_block = send(method_name) do
+        perform_block
+      end
+    end
+
+    perform_block.call
+  end
+
+  def perform
+    raise NotImplementedError
+  end
+
+  # TODO: rollback
+  def rollback
+  end
+
   # wait_for
-  # around_perform
-  # rollback
   # around_rollback
   # concurrency_key
   # fail!

@@ -9,7 +9,9 @@ class Bemi::Storage
     def_delegators :storage_class,
       :find_workflow_definition!,
       :upsert_workflow_definitions!,
-      :create_workflow!
+      :create_workflow!,
+      :create_action!,
+      :find_workflow!
 
     def migration
       require_relative 'storage/migrator'
