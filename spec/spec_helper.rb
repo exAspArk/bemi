@@ -1,12 +1,13 @@
 # frozen_string_literal: true
 
 require "bemi"
+require 'securerandom'
 
 Bemi.configure do |config|
   config.storage = :memory
 end
 
-Bemi::Registrator.sync_workflows!('spec/fixtures/workflows/*.rb')
+Bemi::Registrator.sync_workflows!(Dir.glob('spec/fixtures/workflows/*.rb'))
 
 RSpec.configure do |config|
   # Enable flags like --only-failures and --next-failure

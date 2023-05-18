@@ -14,7 +14,7 @@ class Bemi::Storage
     def_delegators :adapter, :upsert_workflow_definitions!
 
     def adapter
-      @adapter ||= ADAPTER_BY_NAME[Bemi::Config.storage]
+      @adapter ||= ADAPTER_BY_NAME[Bemi::Config.configuration[:storage]]
     end
   end
 end

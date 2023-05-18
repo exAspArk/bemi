@@ -5,6 +5,7 @@ require_relative 'bemi/adapters/memory'
 require_relative 'bemi/config'
 require_relative 'bemi/registrator'
 require_relative 'bemi/storage'
+require_relative 'bemi/validator'
 require_relative 'bemi/version'
 require_relative 'bemi/workflow'
 

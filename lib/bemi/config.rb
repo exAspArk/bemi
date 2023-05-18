@@ -1,26 +1,38 @@
 # frozen_string_literal: true
 
-Bemi::UnsupportedStorageError = Class.new(StandardError)
-
 class Bemi::Config
-  SUPPORTED_STORAGES = %i[memory active_record].freeze
-  DEFAULT_STORAGE = :active_record
+  InvalidConfigurationError = Class.new(StandardError)
+
+  CONFIGURATION_SCHEMA = {
+    type: :object,
+    properties: {
+      storage: {
+        type: :string,
+        enum: %i[memory active_record],
+      },
+    },
+    required: %i[storage],
+  }
 
   class << self
-    attr_reader :storage
-
     def configure(&block)
-      self.storage = DEFAULT_STORAGE
-
       block.call(self)
     end
 
     def storage=(storage)
-      if !SUPPORTED_STORAGES.include?(storage)
-        raise Bemi::UnsupportedStorageError, "Unsupported storage option '#{storage}'"
-      end
+      self.configuration[:storage] = storage
+      validate_configuration!
+    end
 
-      @storage = storage
+    def configuration
+      @configuration ||= {}
+    end
+
+    private
+
+    def validate_configuration!
+      errors = Bemi::Validator.validate(configuration, CONFIGURATION_SCHEMA)
+      raise Bemi::Config::InvalidConfigurationError, errors.first if errors.any?
     end
   end
 end

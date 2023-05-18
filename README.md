@@ -178,25 +178,6 @@ See the [Alternatives](#alternatives) section that describes how Bemi is differe
 
 Workflows declaratively describe actions that can be executed
 
-* Synchronously
-
-```ruby
-class RegistrationWorkflow < Bemi::Workflow
-  name :registration
-
-  def perform
-    action :create_user, sync: true
-    action :send_confirmation_email, sync: true
-    action :confirm_email_address, sync: true
-  end
-end
-
-workflow = Bemi.perform_workflow(:registration, context: { email: params[:email] })
-Bemi.perform_action(:create_user, workflow_id: workflow.id, input: { password: params[:password] })
-Bemi.perform_action(:send_confirmation_email, workflow_id: workflow.id)
-Bemi.perform_action(:confirm_email_address, workflow_id: workflow.id, input: { token: params[:token] })
-```
-
 * Asynchronously
 
 ```ruby
@@ -229,18 +210,37 @@ end
 Bemi.perform_workflow(:registration, context: { email: params[:email] })
 ```
 
-#### Workflow validation
-
-Workflow can define the shape of the `context` and validate it against a JSON Schema
+* Synchronously
 
 ```ruby
 class RegistrationWorkflow < Bemi::Workflow
   name :registration
-  context_schema {
-    type: :object,
-    properties: { email: { type: :string } },
-    required: [:email],
-  }
+
+  def perform
+    action :create_user, sync: true
+    action :send_confirmation_email, sync: true
+    action :confirm_email_address, sync: true
+  end
+end
+
+workflow = Bemi.perform_workflow(:registration, context: { email: params[:email] })
+Bemi.perform_action(:create_user, workflow_id: workflow.id, input: { password: params[:password] })
+Bemi.perform_action(:send_confirmation_email, workflow_id: workflow.id)
+Bemi.perform_action(:confirm_email_address, workflow_id: workflow.id, input: { token: params[:token] })
+```
+
+#### Workflow validation
+
+Workflow can define the shape of the `context` to automatically validate it by using JSON Schema
+
+```ruby
+class RegistrationWorkflow < Bemi::Workflow
+  name :registration
+  
+  context :object do
+    field :email, :string, required: true
+    field :premium_plan, :boolean
+  end
 end
 ```
 
@@ -282,21 +282,24 @@ Bemi.perform_action(:confirm_email_address, workflow_id: workflow.id)
 
 #### Action validation
 
-Bemi allows to define the shape of actions' inputs and outputs and validate it against a JSON Schema
+Bemi allows to define and validate the shape of actions' inputs, context, and output
 
 ```ruby
-class RegistrationWorkflow < Bemi::Workflow
-  name :registration
+class Registration::CreateUserAction < Bemi::Action
+  name :create_user
 
-  def perform
-    action :create_user,
-      sync: true,
-      input_schema: {
-        type: :object, properties: { password: { type: :string } }, required: [:password],
-      },
-      output_schema: {
-        type: :object, properties: { user_id: { type: :integer } }, required: [:user_id],
-      }
+  input :object do
+    field :email, :string, required: true
+    field :password, :string, required: true
+  end
+  
+  context array: :object do
+    field :onboarding_step, :string
+    field :completed, :boolean
+  end
+  
+  output :object do
+    field :user_id, :integer, required: true
   end
 end
 ```
@@ -352,15 +355,12 @@ class Order::ProcessPaymentAction < Bemi::Action
   name :process_payment
   around_rollback :rollback_notifier
 
-  def perform
-    payment = PaymentProcessor.pay_for!(workflow.context[:order_id], input[:payment_token])
-    { payment_id: payment.id }
-  end
-
   def rollback
     refund = PaymentProcessor.issue_refund!(output[:payment_id], input[:payment_token])
     { refund_id: refund.id }
   end
+
+  private
 
   def rollback_notifier(&block)
     OrderMailer.notify_cancelation(output[:payment_id])
