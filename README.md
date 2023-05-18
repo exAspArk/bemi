@@ -46,9 +46,9 @@ class OrderWorkflow < Bemi::Workflow
 
   def perform
     action :process_payment, sync: true
-    action :send_confirmation, wait_for: [:process_payment], async: true
+    action :send_confirmation, wait_for: [:process_payment], async: { queue: 'default' }
     action :ship_package, wait_for: [:process_payment], async: { queue: 'warehouse' }
-    action :request_feedback, wait_for: [:ship_package], async: { delay: 7.days.to_i }
+    action :request_feedback, wait_for: [:ship_package], async: { queue: 'default', delay: 7.days.to_i }
   end
 end
 ```
@@ -120,7 +120,7 @@ end
 
 ## Architecture
 
-Bemi is designed to be lightweight and simple to use by default. As a system dependency, all you need is PostgreSQL.
+Bemi is designed to be lightweight and simple to use by default. It can run in memory or use PostgreSQL, MySQL, and SQLite.
 
 ```
          /‾‾‾\
@@ -133,7 +133,7 @@ Bemi is designed to be lightweight and simple to use by default. As a system dep
 ╵          ∨                                 ╵
 ╵  ________________                          ╵  [‾‾‾‾‾‾‾‾‾‾‾‾]
 ╵ ┆ [Rails Server] ┆  Run "process_payment"  ╵  [------------]
-╵ ┆      with      ┆⸺⸺⸺⸺⸺⸺⸺⸺⸺> [ PostgreSQL ]
+╵ ┆      with      ┆⸺⸺⸺⸺⸺⸺⸺⸺⸺> [  Database  ]
 ╵ ┆    Bemi gem    ┆  action synchronously   ╵  [------------]
 ╵  ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾                          ╵  [____________]
 ╵                                            ╵        │
@@ -158,11 +158,11 @@ Bemi is designed to be lightweight and simple to use by default. As a system dep
 
 * Workflows
 
-Bemi orchestrates workflows by persisting their execution state into PostgreSQL. When connecting to PostgreSQL, Bemi first scans the codebase and registers all workflows uniquely identified by `name`. Workflows describe a sequence of actions by using the DSL written in Ruby that can be run synchronously in the same process or asynchronously and by schedule in workers.
+Bemi orchestrates workflows by persisting their execution state into a database. When connecting to a database, Bemi first scans the codebase and registers all workflows uniquely identified by `name`. Workflows describe a sequence of actions by using the DSL written in Ruby that can be run synchronously in the same process or asynchronously and by schedule in workers.
 
 * Actions
 
-Actions are also uniquely identified by `name`. They can receive data from an input if ran synchronously, previously executed actions if they depend on them, and the shared workflow execution context. They can be implemented and executed in any service or application as long as it is connected to the same PostgreSQL instance. So, there is no need to deal with message passing by implementing APIs, callbacks, message buses, data serialization, etc.
+Actions are also uniquely identified by `name`. They can receive data from an input if ran synchronously, previously executed actions if they depend on them, and the shared workflow execution context. They can be implemented and executed in any service or application as long as it is connected to the same database instance. So, there is no need to deal with message passing by implementing APIs, callbacks, message buses, data serialization, etc.
 
 * Workers
 
@@ -185,8 +185,8 @@ class RegistrationWorkflow < Bemi::Workflow
   name :registration
 
   def perform
-    action :create_user, async: true
-    action :send_welcome_email, wait_for: [:create_user], async: true
+    action :create_user, async: { queue: 'default' }
+    action :send_welcome_email, wait_for: [:create_user], async: { queue: 'default' }
     action :run_background_check, wait_for: [:send_welcome_email], async: { queue: 'kyc' }
   end
 end
@@ -201,9 +201,9 @@ class RegistrationWorkflow < Bemi::Workflow
   name :registration
 
   def perform
-    action :create_user, async: { cron: '0 2 * * *' } # daily at 2am
-    action :send_welcome_email, async: { cron: '0 3 * * *', queue: 'emails', priority: 10 }
-    action :run_background_check, async: { delay: 24.hours.to_i },
+    action :create_user, async: { queue: 'default', cron: '0 2 * * *' } # daily at 2am
+    action :send_welcome_email, async: { queue: 'emails', cron: '0 3 * * *', priority: 10 }
+    action :run_background_check, async: { queue: 'default', delay: 24.hours.to_i },
   end
 end
 
@@ -236,7 +236,7 @@ Workflow can define the shape of the `context` to automatically validate it by u
 ```ruby
 class RegistrationWorkflow < Bemi::Workflow
   name :registration
-  
+
   context :object do
     field :email, :string, required: true
     field :premium_plan, :boolean
@@ -292,12 +292,12 @@ class Registration::CreateUserAction < Bemi::Action
     field :email, :string, required: true
     field :password, :string, required: true
   end
-  
+
   context array: :object do
     field :onboarding_step, :string
     field :completed, :boolean
   end
-  
+
   output :object do
     field :user_id, :integer, required: true
   end
@@ -313,8 +313,8 @@ class RegistrationWorkflow < Bemi::Workflow
   name :registration
 
   def perform
-    action :create_user, async: true, on_error: { retry: :exponential_backoff } # default retry option
-    action :send_welcome_email, async: true, on_error: { retry: 1 }
+    action :create_user, async: { queue: 'default' }, on_error: { retry: :exponential_backoff } # default retry option
+    action :send_welcome_email, async: { queue: 'default' }, on_error: { retry: 1 }
   end
 end
 ```
@@ -401,7 +401,7 @@ class RegistrationWorkflow < Bemi::Workflow
   name :registration
 
   def perform
-    action :create_user, async: true, concurrency: { limit: 1, on_conflict: :reschedule } # or :raise
+    action :create_user, async: { queue: 'default' }, concurrency: { limit: 1, on_conflict: :reschedule } # or :raise
   end
 end
 ```

@@ -13,11 +13,12 @@ RSpec.describe Bemi::Registrator do
     it 'returns a list of workflows' do
       result = Bemi::Registrator.sync_workflows!(Dir.glob('../fixtures/workflows/*.rb'))
 
-      expect(result).to eq([
+      expect(result).to match([
         {
           name: 'sync_registration',
-          actions: SyncRegistrationWorkflow.actions,
-          concurrency: { limit: 1, on_conflict: :raise },
+          actions: an_instance_of(Array),
+          concurrency: an_instance_of(Hash),
+          context_schema: an_instance_of(Hash),
         }
       ])
     end

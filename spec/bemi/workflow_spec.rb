@@ -1,42 +1,27 @@
 # frozen_string_literal: true
 
 RSpec.describe Bemi::Workflow do
-  describe '.actions' do
+  describe '.definition' do
     it 'returns a list of actions' do
-      result = SyncRegistrationWorkflow.actions
+      result = SyncRegistrationWorkflow.definition
 
-      expect(result).to eq([
-        {
-          name: 'create_user',
-          execution: 'sync',
-          wait_for: [],
-          async: {},
-          on_error: {},
-          concurrency: {},
-          input_schema: {},
-          output_schema: {},
+      expect(result).to eq(
+        name: 'sync_registration',
+        actions: [
+          { async: nil, concurrency: nil, execution:"sync", name: "create_user", on_error: nil, wait_for: nil },
+          { async: nil, concurrency: nil, execution: "sync", name: "send_confirmation_email", on_error: nil, wait_for: nil },
+          { async: nil, concurrency: nil, execution: "sync", name: "confirm_email_address", on_error: nil, wait_for: nil },
+        ],
+        concurrency: { limit: 1, on_conflict: :raise },
+        context_schema: {
+          type: :object,
+          properties: {
+            email: { type: :string },
+            remember_me: { type: :boolean },
+          },
+          required: %i[email],
         },
-        {
-          name: 'send_confirmation_email',
-          execution: 'sync',
-          wait_for: [],
-          async: {},
-          on_error: {},
-          concurrency: {},
-          input_schema: {},
-          output_schema: {},
-        },
-        {
-          name: 'confirm_email_address',
-          execution: 'sync',
-          wait_for: [],
-          async: {},
-          on_error: {},
-          concurrency: {},
-          input_schema: {},
-          output_schema: {},
-        },
-      ])
+      )
     end
 
     it "raises an error if an action definition doesn't specify 'sync' or 'async'" do
@@ -50,7 +35,7 @@ RSpec.describe Bemi::Workflow do
       end
 
       expect {
-        workflow_class.actions
+        workflow_class.definition
       }.to raise_error(Bemi::Workflow::InvalidActionDefinitionError, "Action 'test_action' must be either 'sync' or 'async'")
     end
 
@@ -60,12 +45,12 @@ RSpec.describe Bemi::Workflow do
         name SecureRandom.hex
 
         def perform
-          action :test_action, async: true, wait_for: [:action1, :action2]
+          action :test_action, async: { queue: 'default' }, wait_for: [:action1, :action2]
         end
       end
 
       expect {
-        workflow_class.actions
+        workflow_class.definition
       }.to raise_error(Bemi::Workflow::InvalidActionDefinitionError, "Action 'test_action' waits for unknown action names: 'action1', 'action2'")
     end
   end

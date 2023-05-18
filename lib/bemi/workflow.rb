@@ -18,13 +18,14 @@ class Bemi::Workflow
     properties: {
       sync: { type: :boolean },
       async: {
-        type: %i[boolean object],
+        type: :object,
         properties: {
           queue: { type: :string },
           priority: { type: :integer, minimum: 0 },
           delay: { type: :integer, minimum: 0 },
           cron: { type: :string },
         },
+        required: %i[queue],
       },
       wait_for: {
         type: :array,
@@ -35,17 +36,22 @@ class Bemi::Workflow
         properties: {
           retry: { type: :integer, minimum: 0 },
         },
+        required: %i[retry],
+      },
+      concurrency: {
+        type: :object,
+        properties: {
+          limit: { type: :integer, minimum: 1 },
+          on_conflict: { type: :string, enum: %i[raise reschedule] },
+        },
+        required: %i[limit on_conflict],
       },
     },
   }
 
   class << self
-    attr_reader :workflow_name, :concurrency_options
-
     def name(workflow_name)
       @workflow_name = workflow_name
-      @concurrency_options = {}
-
       Bemi::Registrator.add_workflow(workflow_name, self)
     end
 
@@ -54,11 +60,35 @@ class Bemi::Workflow
       @concurrency_options = concurrency_options
     end
 
-    def actions
-      self.new.actions
+    def context(type, options = {}, &block)
+      @context_schema = { type: type }.merge(options)
+      block&.call
+    end
+
+    def field(name, type, options = {})
+      @context_schema[:properties] ||= {}
+      @context_schema[:properties][name] = { type: type }.merge(options.except(:required))
+
+      if options[:required]
+        @context_schema[:required] ||= []
+        @context_schema[:required] << name
+      end
+    end
+
+    def definition
+      {
+        name: @workflow_name.to_s,
+        actions: actions,
+        concurrency: @concurrency_options,
+        context_schema: @context_schema,
+      }
     end
 
     private
+
+    def actions
+      self.new.actions
+    end
 
     def validate_concurrency_options!(concurrency_options)
       errors = Bemi::Validator.validate(concurrency_options, CONCURRENCY_SCHEMA)
@@ -94,12 +124,10 @@ class Bemi::Workflow
     @actions << {
       name: action_name.to_s,
       execution: execution,
-      wait_for: action_options[:wait_for] || [],
-      async: action_options[:async].is_a?(Hash) ? action_options[:async] : {},
-      on_error: action_options[:on_error] || {},
-      concurrency: action_options[:concurrency] || {},
-      input_schema: action_options[:input_schema] || {},
-      output_schema: action_options[:output_schema] || {},
+      wait_for: action_options[:wait_for],
+      async: action_options[:async],
+      on_error: action_options[:on_error],
+      concurrency: action_options[:concurrency],
     }
   end
 

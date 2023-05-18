@@ -13,7 +13,7 @@ class Bemi::Validator
           sub('#/', ''). # remove a nested path
           gsub('"', "'"). # replace double quotes with single quotes
           sub("The property ''", 'The value'). # rephrase the root error
-          sub(' property ', ' field ') # replace "property" with 'field'
+          gsub(' property ', ' field ') # replace "property" with 'field'
       end
 
       formatted_errors + unsupported_fields_errors(values, schema)

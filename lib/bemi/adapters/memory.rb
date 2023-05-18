@@ -9,5 +9,9 @@ class Bemi::Adapters::Memory < Bemi::Adapters::Abstract
         @workflow_definitions[workflow_definition[:name]] = workflow_definition
       end
     end
+
+    def find_workflow_definition!(workflow_name)
+      @workflow_definitions[workflow_name.to_s]
+    end
   end
 end

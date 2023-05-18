@@ -14,7 +14,7 @@ RSpec.describe Bemi::Validator do
 
     it 'returns an error for unsupported nested extra values' do
       errors = Bemi::Validator.validate({ async: { foo: 'bar' } }, Bemi::Workflow::ACTION_SCHEMA)
-      expect(errors).to eq(["The field 'foo' is not supported"])
+      expect(errors).to eq(["The field 'async' did not contain a required field of 'queue'", "The field 'foo' is not supported"])
     end
   end
 end
