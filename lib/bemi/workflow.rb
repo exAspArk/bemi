@@ -4,6 +4,9 @@ class Bemi::Workflow
   InvalidConcurrencyOptionError = Class.new(StandardError)
   InvalidActionDefinitionError = Class.new(StandardError)
 
+  EXECUTION_SYNC = 'sync'
+  EXECUTION_ASYNC = 'async'
+
   CONCURRENCY_SCHEMA = {
     type: :object,
     properties: {
@@ -50,6 +53,8 @@ class Bemi::Workflow
   }
 
   class << self
+    include Bemi::Modules::Schemable
+
     def name(workflow_name)
       @workflow_name = workflow_name
       Bemi::Registrator.add_workflow(workflow_name, self)
@@ -61,18 +66,7 @@ class Bemi::Workflow
     end
 
     def context(type, options = {}, &block)
-      @context_schema = { type: type }.merge(options)
-      block&.call
-    end
-
-    def field(name, type, options = {})
-      @context_schema[:properties] ||= {}
-      @context_schema[:properties][name] = { type: type }.merge(options.except(:required))
-
-      if options[:required]
-        @context_schema[:required] ||= []
-        @context_schema[:required] << name
-      end
+      @context_schema = build_schema(type, options, &block)
     end
 
     def definition
@@ -116,9 +110,9 @@ class Bemi::Workflow
 
     execution =
       if action_options[:sync]
-        'sync'
+        EXECUTION_SYNC
       elsif action_options[:async]
-        'async'
+        EXECUTION_ASYNC
       end
 
     @actions << {

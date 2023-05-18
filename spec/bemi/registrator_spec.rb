@@ -1,11 +1,19 @@
 # frozen_string_literal: true
 
 RSpec.describe Bemi::Registrator do
-  describe '.add' do
+  describe '.add_workflow' do
     it 'raises an error if the workflow name is already registered' do
       expect {
         Bemi::Registrator.add_workflow(:sync_registration, SyncRegistrationWorkflow)
       }.to raise_error(Bemi::Registrator::DuplicateWorkflowNameError, "Workflow 'sync_registration' is already registered")
+    end
+  end
+
+  describe '.add_action' do
+    it 'raises an error if the action name is already registered' do
+      expect {
+        Bemi::Registrator.add_action(:create_user, CreateUserAction)
+      }.to raise_error(Bemi::Registrator::DuplicateActionNameError, "Action 'create_user' is already registered")
     end
   end
 

@@ -2,6 +2,7 @@
 
 class Bemi::Registrator
   DuplicateWorkflowNameError = Class.new(StandardError)
+  DuplicateActionNameError = Class.new(StandardError)
 
   class << self
     def sync_workflows!(files)
@@ -18,12 +19,25 @@ class Bemi::Registrator
       @workflow_class_by_name[workflow_name] = workflow_class
     end
 
+    def add_action(action_name, action_class)
+      @action_class_by_name ||= {}
+
+      validate_action_name_uniqueness!(action_name)
+      @action_class_by_name[action_name] = action_class
+    end
+
     private
 
     def validate_workflow_name_uniqueness!(workflow_name)
       return if !@workflow_class_by_name[workflow_name]
 
       raise Bemi::Registrator::DuplicateWorkflowNameError, "Workflow '#{workflow_name}' is already registered"
+    end
+
+    def validate_action_name_uniqueness!(action_name)
+      return if !@action_class_by_name[action_name]
+
+      raise Bemi::Registrator::DuplicateActionNameError, "Action '#{action_name}' is already registered"
     end
   end
 end

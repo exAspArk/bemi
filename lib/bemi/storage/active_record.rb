@@ -14,12 +14,44 @@ class Bemi::ApplicationRecord < Bemi::Config.configuration.fetch(:storage_parent
   end
 end
 
+# t.uuid :id, primary_key: true
+# t.string :name, null: false, index: { unique: true }
+# t.json :actions, null: false
+# t.json :concurrency
+# t.json :context_schema
 class Bemi::WorkflowDefinition < Bemi::ApplicationRecord
   self.table_name = 'bemi_workflow_definitions'
+
+  def actions
+    self[:actions].deep_symbolize_keys
+  end
+
+  def concurrency
+    self[:concurrency].deep_symbolize_keys
+  end
+
+  def context_schema
+    self[:context_schema].deep_symbolize_keys
+  end
 end
 
+# t.uuid :id, primary_key: true
+# t.string :name, null: false, index: true
+# t.json :definition, null: false
+# t.string :status
+# t.json :context
+# t.timestamp :started_at
+# t.timestamp :finished_at
 class Bemi::WorkflowInstance < Bemi::ApplicationRecord
   self.table_name = 'bemi_workflow_instances'
+
+  def definition
+    self[:definition].deep_symbolize_keys
+  end
+
+  def context
+    self[:context].deep_symbolize_keys
+  end
 end
 
 class Bemi::Storage::ActiveRecord

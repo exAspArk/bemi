@@ -10,6 +10,7 @@ Bemi.configure do |config|
 end
 
 Bemi::Registrator.sync_workflows!(Dir.glob('spec/fixtures/workflows/*.rb'))
+Dir.glob('spec/fixtures/actions/**/*.rb').each { |file| require "./#{file}" }
 
 RSpec.configure do |config|
   # Enable flags like --only-failures and --next-failure

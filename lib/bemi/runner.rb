@@ -9,6 +9,11 @@ class Bemi::Runner
       validate_context!(workflow_definition, context)
 
       workflow = Bemi::Storage.create_workflow!(workflow_definition, context)
+      # perform_next_action(workflow)
+    end
+
+    def perform_next_sync_actions(workflow)
+      sync_actions = workflow.definition.fetch(:actions).select { |a| c.fetch(:execution) == Bemi::Workflow::EXECUTION_SYNC }
     end
 
     private
