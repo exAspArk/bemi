@@ -3,29 +3,27 @@
 require 'forwardable'
 
 class Bemi::Storage
-  WorkflowNotFound = Class.new(StandardError)
-
-  ADAPTER_BY_NAME = {
-    memory: Bemi::Adapters::Memory,
-    # active_record: Bemi::Adapters::ActiveRecord,
-  }.freeze
-
   class << self
-    def upsert_workflow_definitions!(workflow_definitions)
-      adapter.upsert_workflow_definitions!(workflow_definitions)
-    end
+    extend Forwardable
 
-    def find_workflow_definition!(workflow_name)
-      workflow_definition = adapter.find_workflow_definition!(workflow_name)
-      raise Bemi::Storage::WorkflowNotFound, workflow_name if !workflow_definition
+    def_delegators :storage_class,
+      :find_workflow_definition!,
+      :upsert_workflow_definitions!,
+      :create_workflow!
 
-      workflow_definition
+    def migration
+      require_relative 'storage/migrator'
+      Bemi::Storage::Migrator.migration
     end
 
     private
 
-    def adapter
-      @adapter ||= ADAPTER_BY_NAME[Bemi::Config.configuration[:storage]]
+    def storage_class
+      @storage_class ||=
+        if Bemi::Config.configuration.fetch(:storage_type) == :active_record
+          require_relative 'storage/active_record'
+          Bemi::Storage::ActiveRecord
+        end
     end
   end
 end

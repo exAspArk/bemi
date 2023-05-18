@@ -1,10 +1,12 @@
 # frozen_string_literal: true
 
 require "bemi"
-require 'securerandom'
+
+Dir.glob('spec/support/**/*.rb').each { |file| require "./#{file}" }
 
 Bemi.configure do |config|
-  config.storage = :memory
+  config.storage_type = :active_record
+  config.storage_parent_class = 'ActiveRecord::Base'
 end
 
 Bemi::Registrator.sync_workflows!(Dir.glob('spec/fixtures/workflows/*.rb'))

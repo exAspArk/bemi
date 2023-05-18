@@ -120,7 +120,7 @@ end
 
 ## Architecture
 
-Bemi is designed to be lightweight and simple to use by default. It can run in memory or use PostgreSQL, MySQL, and SQLite.
+Bemi is designed to be lightweight and simple to use by default. It can run by using  PostgreSQL, MySQL, or SQLite.
 
 ```
          /‾‾‾\
