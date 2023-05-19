@@ -10,6 +10,7 @@ Bemi stands for "beginner mindset" and is pronounced as [ˈbɛmɪ].
 * [Code example](#code-example)
 * [Architecture](#architecture)
 * [Usage](#usage)
+  * [Configuration](#configuration)
   * [Workflows](#workflows)
     * [Workflow definition](#workflow-definition)
     * [Workflow validation](#workflow-validation)
@@ -120,7 +121,7 @@ end
 
 ## Architecture
 
-Bemi is designed to be lightweight and simple to use by default. It can run by using  PostgreSQL, MySQL, or SQLite.
+Bemi is designed to be lightweight, composable, and simple to use by default.
 
 ```
          /‾‾‾\
@@ -129,48 +130,80 @@ Bemi is designed to be lightweight and simple to use by default. It can run by u
       /   User  \
            │
  - - - - - │ - - - - - - - - - - - - - - - -
-╵          │  Start "order" workflow         ╵
-╵          ∨                                 ╵
-╵  ________________                          ╵  [‾‾‾‾‾‾‾‾‾‾‾‾]
-╵ ┆ [Rails Server] ┆  Run "process_payment"  ╵  [------------]
-╵ ┆      with      ┆⸺⸺⸺⸺⸺⸺⸺⸺⸺> [  Database  ]
-╵ ┆    Bemi gem    ┆  action synchronously   ╵  [------------]
-╵  ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾                          ╵  [____________]
-╵                                            ╵        │
-╵                                            ╵        │
-╵   _______________                          ╵        │
-╵  | [Bemi Worker] | Run "send_confirmation" ╵        │
-╵  |   "default"   | <⸺⸺⸺⸺⸺⸺⸺⸺⸺⸺⸺│
-╵  |     queue     |      action async       ╵        │        - - - - - - - - - - - - - - - - - - -
-╵   ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾                          ╵        │       ╵                     _______________  ╵
-╵                                            ╵        │       ╵ Run "ship_package" | [Bemi Worker] | ╵
-╵                                            ╵        │⸺⸺⸺⸺⸺⸺⸺⸺⸺> |  "warehouse"  | ╵
-╵                                            ╵        │       ╵    action async    |     queue     | ╵
-╵   _______________                          ╵        │       ╵                     ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾  ╵
-╵  | [Bemi Worker] |  Run "request_feedback" ╵        │       ╵                                      ╵
-╵  |   "default"   | <⸺⸺⸺⸺⸺⸺⸺⸺⸺⸺⸺╵       ╵                                      ╵
-╵  |     queue     |    action by schedule   ╵                ╵                                      ╵
-╵   ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾                          ╵                ╵                                      ╵
-╵                                            ╵                ╵                                      ╵
-╵              Store service                 ╵                ╵          Warehouse service           ╵
- - - - - - - - - - - - - - - - - - - - - - -                   - - - - - - - - - - - - - - - - - - - -
+╵          │  Start "order" workflow        ╵
+╵          ∨                                ╵
+╵   ______________                          ╵  [‾‾‾‾‾‾‾‾‾‾‾‾]
+╵  ┆   [Server]   ┆  Run "process_payment"  ╵  [------------]
+╵  ┆     with     ┆⸺⸺⸺⸺⸺⸺⸺⸺⸺> [  Database  ]
+╵  ┆   Bemi gem   ┆  action synchronously   ╵  [------------]
+╵   ‾‾‾‾‾‾‾‾‾‾‾‾‾‾                          ╵  [____________]
+╵                                           ╵        │
+╵                                           ╵        │
+╵   ______________                          ╵        │
+╵  |   [Worker]   | Run "send_confirmation" ╵        │
+╵  |  "default"   | <⸺⸺⸺⸺⸺⸺⸺⸺⸺⸺⸺│
+╵  |    queue     |      action async       ╵        │        - - - - - - - - - - - - - - - - - - -
+╵   ‾‾‾‾‾‾‾‾‾‾‾‾‾‾                          ╵        │       ╵                     _____________   ╵
+╵                                           ╵        │       ╵ Run "ship_package" |  [Worker]   |  ╵
+╵                                           ╵        │⸺⸺⸺⸺⸺⸺⸺⸺⸺> | "warehouse" |  ╵
+╵                                           ╵        │       ╵    action async    |    queue    |  ╵
+╵   ______________                          ╵        │       ╵                     ‾‾‾‾‾‾‾‾‾‾‾‾‾   ╵
+╵  |   [Worker]   |  Run "request_feedback" ╵        │       ╵                                     ╵
+╵  |  "default"   | <⸺⸺⸺⸺⸺⸺⸺⸺⸺⸺⸺╵       ╵                                     ╵
+╵  |    queue     |    action by schedule   ╵                ╵                                     ╵
+╵   ‾‾‾‾‾‾‾‾‾‾‾‾‾‾                          ╵                ╵                                     ╵
+╵                                           ╵                ╵                                     ╵
+╵              Store service                ╵                ╵          Warehouse service          ╵
+ - - - - - - - - - - - - - - - - - - - - - -                  - - - - - - - - - - - - - - - - - - -
 ```
+
+* Database
+
+Bemi uses a database to store the workflow execution state. It can work by connecting to PostgreSQL, MySQL, or SQLite with ActiveRecord. Note that using the whole Ruby on Rails framework is not required.
 
 * Workflows
 
-Bemi orchestrates workflows by persisting their execution state into a database. When connecting to a database, Bemi first scans the codebase and registers all workflows uniquely identified by `name`. Workflows describe a sequence of actions by using the DSL written in Ruby that can be run synchronously in the same process or asynchronously and by schedule in workers.
+Bemi orchestrates workflows by relying on a database. When connecting to a database, Bemi first scans the codebase and registers all workflows uniquely identified by `name`. Workflows describe a sequence of actions in Ruby that can be run synchronously in the same process or asynchronously and by schedule in workers.
 
 * Actions
 
-Actions are also uniquely identified by `name`. They can receive data from an input if ran synchronously, previously executed actions if they depend on them, and the shared workflow execution context. They can be implemented and executed in any service or application as long as it is connected to the same database instance. So, there is no need to deal with message passing by implementing APIs, callbacks, message buses, data serialization, etc.
+Actions are also uniquely identified by `name`. They can receive data from an input, previously executed actions if they depend on them, and the shared workflow execution context. They can be implemented and executed in any service or application as long as it is connected to the same database instance. So, there is no need to deal with message passing by implementing APIs, callbacks, message buses, data serialization, etc.
 
 * Workers
 
-Bemi workers allow running actions that are executed asynchronously or by schedule. One worker represents a process with multiple threads to enable concurrency. Workers can process one or more `queues` and execute different actions across different workflows simultaneously if they are assigned to the same workers' queues.
+Workers allow running actions that are executed asynchronously or by schedule. Bemi can integrate with ActiveJob or popular background job processing tools like Sidekiq and Que. One worker usually represents a process with multiple threads to enable concurrency. Workers can process one or more `queues` and execute different actions across different workflows simultaneously if they are assigned to the same workers' queues.
 
 See the [Alternatives](#alternatives) section that describes how Bemi is different from other tools you might be familiar with.
 
 ## Usage
+
+### Configuration
+
+Configure Bemi before loading you application code:
+
+```ruby
+# config/initializers/bemi.rb
+
+# Configure Bemi
+Bemi.configure do |config|
+  config.storage_adapter = :active_record
+  config.storage_parent_class = 'ActiveRecord::Base' # or ApplicationRecord, MyCustomConnectionRecord, etc.
+  config.worker_adapter = :active_job
+  config.worker_parent_class = 'ActiveJob::Base' # or ApplicationJob, MyCustomJob, etc.
+end
+
+# Specify a list of file paths to workflows
+Bemi::Registrator.sync_workflows!(Dir.glob('app/workflows/**/*.rb'))
+```
+
+Prepare your database by creating a database migration with `bundle exec rails g migration create_bemi_tables `:
+
+```ruby
+# db/migrate/20230518121110_create_bemi_tables.rb
+CreateBemiTables = Class.new(Bemi.generate_migration)
+```
+
+After running `bundle exec rails db:migrate`, you can start defining new workflows.
 
 ### Workflows
 
@@ -447,7 +480,7 @@ $ gem install bemi
 
 #### Background jobs with persistent state
 
-Tools like Sidekiq, Que, and GoodJob are similar since they execute jobs in background, persist the execution state, retry, etc. These tools, however, focus on executing a single job as a unit of work. Bemi can be used in a similar way to perform single actions. But it shines when it comes to managing chains of actions defined in workflows without a need to use complex callbacks.
+Tools like Sidekiq, Que, and GoodJob are similar since they execute jobs in background, persist the execution state, retry, etc. These tools, however, focus on executing a single job as a unit of work. Bemi can use these tools to perform single actions when managing chains of actions defined in workflows without a need to use complex callbacks.
 
 Bemi orchestrates workflows instead of trying to choreograph them. This makes it easy to implement and maintain the code, reduce coordination overhead by having a central coordinator, improve observability, and simplify troubleshooting issues.
 

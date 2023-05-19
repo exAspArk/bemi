@@ -16,6 +16,11 @@ class Bemi
       Bemi::Config.configure(&block)
     end
 
+    def generate_migration
+      require 'bemi/storage/migrator'
+      Bemi::Storage::Migrator.migration
+    end
+
     def perform_workflow(workflow_name, context: {})
       Bemi::Runner.perform_workflow(workflow_name, context: context)
     end

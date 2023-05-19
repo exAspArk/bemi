@@ -6,7 +6,7 @@ class Bemi::Config
   CONFIGURATION_SCHEMA = {
     type: :object,
     properties: {
-      storage_type: {
+      storage_adapter: {
         type: :string,
         enum: %i[active_record],
       },
@@ -14,10 +14,12 @@ class Bemi::Config
         type: :string,
       },
     },
-    required: %i[storage_type storage_parent_class],
+    required: %i[storage_adapter storage_parent_class],
   }
 
-  DEFAULT_STORAGE_TYPE = :active_record
+  STORAGE_ADAPTER_ACTIVE_RECORD = :active_record
+
+  DEFAULT_STORAGE_ADAPTER = STORAGE_ADAPTER_ACTIVE_RECORD
   DEFAULT_STORAGE_PARENT_CLASS = 'ActiveRecord::Base'
 
   class << self
@@ -25,8 +27,8 @@ class Bemi::Config
       block.call(self)
     end
 
-    def storage_type=(storage_type)
-      self.configuration[:storage_type] = storage_type
+    def storage_adapter=(storage_adapter)
+      self.configuration[:storage_adapter] = storage_adapter
       validate_configuration!
     end
 
@@ -37,7 +39,7 @@ class Bemi::Config
 
     def configuration
       @configuration ||= {
-        storage_type: DEFAULT_STORAGE_TYPE,
+        storage_adapter: DEFAULT_STORAGE_ADAPTER,
         storage_parent_class: DEFAULT_STORAGE_PARENT_CLASS,
       }
     end

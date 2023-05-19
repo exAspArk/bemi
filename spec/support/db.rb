@@ -5,8 +5,7 @@ ActiveRecord::Base.establish_connection(
   database: 'test.db'
 )
 
-class InitBemiTables < Bemi::Storage.migration
-end
+InitBemiTables = Class.new(Bemi.generate_migration)
 
 InitBemiTables.migrate(:down)
 InitBemiTables.migrate(:up)

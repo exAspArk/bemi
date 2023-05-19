@@ -18,13 +18,13 @@ class Bemi::Runner
       validate!(input, action_class.input_schema, InvalidInput)
 
       workflow = Bemi::Storage.find_workflow!(workflow_id)
-      action_instance = Bemi::Storage.create_action!(action_name, workflow, input)
       action = action_class.new(workflow: workflow, input: input)
+      action_instance = Bemi::Storage.create_action!(action_name, workflow, input)
 
       begin
         action_instance.update!(status: Bemi::ActionInstance::STATUS_RUNNING, started_at: Time.current)
 
-        action.perform_with_callbacks
+        action.perform_with_around_wrappers
 
         validate!(action.context, action_class.context_schema, InvalidContext)
         validate!(action.output, action_class.output_schema, InvalidOutput)

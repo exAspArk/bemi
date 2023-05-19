@@ -42,7 +42,7 @@ class Bemi::Action
     @context = {}
   end
 
-  def perform_with_callbacks
+  def perform_with_around_wrappers
     perform_block = proc do
       @output = perform
     end

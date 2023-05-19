@@ -13,16 +13,11 @@ class Bemi::Storage
       :create_action!,
       :find_workflow!
 
-    def migration
-      require_relative 'storage/migrator'
-      Bemi::Storage::Migrator.migration
-    end
-
     private
 
     def storage_class
       @storage_class ||=
-        if Bemi::Config.configuration.fetch(:storage_type) == :active_record
+        if Bemi::Config.configuration.fetch(:storage_adapter) == Bemi::Config::STORAGE_ADAPTER_ACTIVE_RECORD
           require_relative 'storage/active_record'
           Bemi::Storage::ActiveRecord
         end
