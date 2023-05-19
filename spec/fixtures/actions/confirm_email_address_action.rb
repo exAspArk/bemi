@@ -1,4 +1,4 @@
-class SendConfirmationEmailAction < Bemi::Action
+class ConfirmEmailAddressAction < Bemi::Action
   name :confirm_email_address
 
   def perform

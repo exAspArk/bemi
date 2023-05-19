@@ -29,6 +29,12 @@ RSpec.describe Bemi::Registrator do
           context_schema: nil,
         },
         {
+          name: 'single_action',
+          actions: an_instance_of(Array),
+          concurrency: nil,
+          context_schema: nil,
+        },
+        {
           name: 'sync_registration',
           actions: an_instance_of(Array),
           concurrency: an_instance_of(Hash),

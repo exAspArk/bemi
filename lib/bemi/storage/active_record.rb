@@ -4,23 +4,32 @@ require 'securerandom'
 require 'active_record'
 
 class Bemi::ApplicationRecord < Bemi::Config.configuration.fetch(:storage_parent_class).constantize
+  class CustomJsonSerializer
+    class << self
+      def dump(json)
+        json
+      end
+
+      def load(json)
+        if json.is_a?(Hash)
+          json.deep_symbolize_keys
+        elsif json.is_a?(Array)
+          json.map(&:deep_symbolize_keys)
+        else
+          json
+        end
+      end
+    end
+  end
+
   self.abstract_class = true
-  after_initialize :generate_uuid
+
+  after_initialize :after_initialize_callback
 
   private
 
-  def generate_uuid
+  def after_initialize_callback
     self.id = SecureRandom.uuid if id.nil?
-  end
-
-  def deep_symbolize_attribute_keys(attribute)
-    if self[attribute].is_a?(Hash)
-      self[attribute].deep_symbolize_keys
-    elsif self[attribute].is_a?(Array)
-      self[attribute].map(&:deep_symbolize_keys)
-    else
-      self[attribute]
-    end
   end
 end
 
@@ -32,17 +41,9 @@ end
 class Bemi::WorkflowDefinition < Bemi::ApplicationRecord
   self.table_name = 'bemi_workflow_definitions'
 
-  def actions
-    deep_symbolize_attribute_keys(:actions)
-  end
-
-  def concurrency
-    deep_symbolize_attribute_keys(:concurrency)
-  end
-
-  def context_schema
-    deep_symbolize_attribute_keys(:context_schema)
-  end
+  serialize :actions, CustomJsonSerializer
+  serialize :concurrency, CustomJsonSerializer
+  serialize :context_schema, CustomJsonSerializer
 end
 
 # t.uuid :id, primary_key: true
@@ -63,23 +64,19 @@ class Bemi::WorkflowInstance < Bemi::ApplicationRecord
   STATE_TIMED_OUT = 'timed_out'
   STATE_CANCELED = 'canceled'
 
-  after_initialize :set_default_status
+  serialize :definition, CustomJsonSerializer
+  serialize :context, CustomJsonSerializer
+
+  scope :not_finished, -> { where(state: [STATE_PENDING, STATE_RUNNING]) }
 
   def pending?
     state == STATE_PENDING
   end
 
-  def definition
-    deep_symbolize_attribute_keys(:definition)
-  end
-
-  def context
-    deep_symbolize_attribute_keys(:context)
-  end
-
   private
 
-  def set_default_status
+  def after_initialize_callback
+    super
     self.state = STATE_PENDING if state.nil?
   end
 end
@@ -109,29 +106,17 @@ class Bemi::ActionInstance < Bemi::ApplicationRecord
   STATE_TIMED_OUT = 'timed_out'
   STATE_CANCELED = 'canceled'
 
+  serialize :input, CustomJsonSerializer
+  serialize :output, CustomJsonSerializer
+  serialize :context, CustomJsonSerializer
+  serialize :custom_errors, CustomJsonSerializer
+
   belongs_to :workflow, class_name: 'Bemi::WorkflowInstance', foreign_key: :workflow_instance_id
-
-  after_initialize :set_default_status
-
-  def input
-    deep_symbolize_attribute_keys(:input)
-  end
-
-  def output
-    deep_symbolize_attribute_keys(:output)
-  end
-
-  def context
-    deep_symbolize_attribute_keys(:context)
-  end
-
-  def custom_errors
-    deep_symbolize_attribute_keys(:custom_errors)
-  end
 
   private
 
-  def set_default_status
+  def after_initialize_callback
+    super
     self.state = STATE_PENDING if state.nil?
   end
 end
@@ -159,15 +144,28 @@ class Bemi::Storage::ActiveRecord
       )
     end
 
+    def start_workflow!(workflow)
+      workflow.update!(state: Bemi::WorkflowInstance::STATE_RUNNING, started_at: Time.current)
+    end
+
+    def fail_workflow!(workflow)
+      workflow.update!(state: Bemi::WorkflowInstance::STATE_FAILED, finished_at: Time.current)
+    end
+
+    def complete_workflow!(workflow)
+      workflow.update!(state: Bemi::WorkflowInstance::STATE_COMPLETED, finished_at: Time.current)
+    end
+
     def find_workflow!(id)
       Bemi::WorkflowInstance.find(id)
     end
 
+    def update_workflow_context!(workflow, context:)
+      workflow.update!(context: context)
+    end
+
     def not_finished_workflow_count(concurrency_key)
-      Bemi::WorkflowInstance.where(
-        concurrency_key: concurrency_key,
-        state: [Bemi::WorkflowInstance::STATE_RUNNING, Bemi::WorkflowInstance::STATE_PENDING],
-      ).count
+      Bemi::WorkflowInstance.not_finished.where(concurrency_key: concurrency_key).count
     end
 
     def create_action!(action_name, workflow_id, input)

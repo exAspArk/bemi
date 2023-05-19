@@ -61,6 +61,16 @@ RSpec.describe Bemi::Runner do
 
         expect(output).to eq([id: 'id'])
       end
+
+      it 'complete the workflow if all actions are completed' do
+        workflow = Bemi.perform_workflow(:single_action)
+
+        expect {
+          Bemi.perform_action(:confirm_email_address, workflow_id: workflow.id)
+        }.to change { workflow.reload.state }.from('pending').to('completed')
+
+        expect(workflow.context).to eq(confirmed: true)
+      end
     end
 
     context 'fail' do
@@ -84,6 +94,16 @@ RSpec.describe Bemi::Runner do
         expect(action_instance.context).to eq({ email: 'email@example.com', rollbacked: true, around_rollbacked: true })
         expect(action_instance.output).to eq(nil)
         expect(action_instance.custom_errors).to eq({ email: 'Invalid email: email@example.com' })
+      end
+
+      it 'marks the workflow as failed' do
+        workflow = Bemi.perform_workflow(:sync_registration, context: { email: 'email@example.com' })
+
+        expect {
+          Bemi.perform_action(:send_confirmation_email, workflow_id: workflow.id)
+        }.to raise_error(Bemi::Action::CustomFailError)
+
+        expect(workflow.reload.state).to eq('failed')
       end
 
       it 'fails if still waits for another action' do

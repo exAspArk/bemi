@@ -15,8 +15,8 @@ class Bemi::Runner
       workflow_definition = Bemi::Storage.find_workflow_definition!(workflow_name)
       validate!(context, workflow_definition.context_schema, InvalidContext)
       concurrency_key = Digest::SHA256.hexdigest("#{workflow_name}-#{context.to_json}")
-      limit = workflow_definition.concurrency&.fetch(:limit)
 
+      limit = workflow_definition.concurrency&.fetch(:limit)
       if limit && limit <= Bemi::Storage.not_finished_workflow_count(concurrency_key)
         if workflow_definition.concurrency.fetch(:on_conflict) == Bemi::Workflow::ON_CONFLICT_RAISE
           raise ConcurrencyError, "Cannot run more than #{limit} '#{workflow_name}' workflows at a time"
@@ -37,6 +37,7 @@ class Bemi::Runner
       Bemi::Storage.transaction do
         action_instance = Bemi::Storage.create_action!(action_name, workflow.id, input)
         Bemi::Storage.start_action!(action_instance)
+        Bemi::Storage.start_workflow!(workflow)
       end
 
       begin
@@ -44,7 +45,13 @@ class Bemi::Runner
         action.perform_with_around_wrappers
         validate!(action.context, action_class.context_schema, InvalidContext)
         validate!(action.output, action_class.output_schema, InvalidOutput)
-        Bemi::Storage.complete_action!(action_instance, context: action.context, output: action.output)
+        Bemi::Storage.transaction do
+          Bemi::Storage.complete_action!(action_instance, context: action.context, output: action.output)
+          Bemi::Storage.update_workflow_context!(workflow, context: action.workflow.context)
+          if Bemi::Storage.incomplete_action_names(workflow.definition.fetch(:actions).map { |a| a.fetch(:name) }, workflow.id).empty?
+            Bemi::Storage.complete_workflow!(action.workflow)
+          end
+        end
         action.output
       rescue StandardError => perform_error
         rollback_action(action_instance, action, perform_error)
@@ -69,19 +76,22 @@ class Bemi::Runner
     def rollback_action(action_instance, action, perform_error)
       perform_logs = "#{perform_error.class}: #{perform_error.message}\n#{perform_error.backtrace.join("\n")}"
       action.rollback_with_around_wrappers
-      Bemi::Storage.fail_action!(
-        action_instance,
-        context: action.context,
-        custom_errors: action.custom_errors,
-        logs: perform_logs,
-      )
+      Bemi::Storage.transaction do
+        Bemi::Storage.fail_workflow!(action_instance.workflow)
+        Bemi::Storage.update_workflow_context!(action.workflow, context: action.workflow.context)
+        Bemi::Storage.fail_action!(action_instance, context: action.context, custom_errors: action.custom_errors, logs: perform_logs)
+      end
     rescue StandardError => e
-      Bemi::Storage.fail_action!(
-        action_instance,
-        context: action.context,
-        custom_errors: action.custom_errors,
-        logs: "#{perform_logs}\n\n#{e.class}: #{e.message}\n#{e.backtrace.join("\n")}",
-      )
+      Bemi::Storage.transaction do
+        Bemi::Storage.fail_workflow!(action_instance.workflow)
+        Bemi::Storage.update_workflow_context!(action.workflow, context: action.workflow.context)
+        Bemi::Storage.fail_action!(
+          action_instance,
+          context: action.context,
+          custom_errors: action.custom_errors,
+          logs: "#{perform_logs}\n\n#{e.class}: #{e.message}\n#{e.backtrace.join("\n")}",
+        )
+      end
       raise e
     end
 
