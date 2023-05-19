@@ -26,6 +26,7 @@ class Bemi::Storage::Migrator
             t.json :definition, null: false
             t.string :state, null: false, index: true
             t.json :context
+            t.string :concurrency_key, index: true
             t.timestamp :started_at
             t.timestamp :finished_at
             t.timestamps

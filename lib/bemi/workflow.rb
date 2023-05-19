@@ -4,6 +4,9 @@ class Bemi::Workflow
   InvalidConcurrencyOptionError = Class.new(StandardError)
   InvalidActionDefinitionError = Class.new(StandardError)
 
+  ON_CONFLICT_RAISE = 'raise'
+  ON_CONFLICT_REJECT = 'reject'
+
   EXECUTION_SYNC = 'sync'
   EXECUTION_ASYNC = 'async'
 

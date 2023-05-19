@@ -50,6 +50,7 @@ end
 # t.json :definition, null: false
 # t.string :state
 # t.json :context
+# t.string :concurrency_key, index: true
 # t.timestamp :started_at
 # t.timestamp :finished_at
 class Bemi::WorkflowInstance < Bemi::ApplicationRecord
@@ -148,12 +149,13 @@ class Bemi::Storage::ActiveRecord
       Bemi::WorkflowDefinition.find_by!(name: workflow_name.to_s)
     end
 
-    def create_workflow!(workflow_definition, context)
+    def create_workflow!(workflow_definition, context:, concurrency_key:)
       Bemi::WorkflowInstance.create!(
         name: workflow_definition.name,
         definition: workflow_definition.attributes,
-        state: :pending,
+        state: Bemi::WorkflowInstance::STATE_PENDING,
         context: context,
+        concurrency_key: concurrency_key,
       )
     end
 
@@ -161,10 +163,17 @@ class Bemi::Storage::ActiveRecord
       Bemi::WorkflowInstance.find(id)
     end
 
+    def not_finished_workflow_count(concurrency_key)
+      Bemi::WorkflowInstance.where(
+        concurrency_key: concurrency_key,
+        state: [Bemi::WorkflowInstance::STATE_RUNNING, Bemi::WorkflowInstance::STATE_PENDING],
+      ).count
+    end
+
     def create_action!(action_name, workflow_id, input)
       Bemi::ActionInstance.create!(
         name: action_name,
-        state: :pending,
+        state: Bemi::ActionInstance::STATE_PENDING,
         workflow_instance_id: workflow_id,
         input: input,
       )

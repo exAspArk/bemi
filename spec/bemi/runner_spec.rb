@@ -22,6 +22,15 @@ RSpec.describe Bemi::Runner do
       expect(workflow.context).to eq(email: 'email@example.com')
       expect(workflow.definition).to include(SyncRegistrationWorkflow.definition)
     end
+
+    it 'raises an error if the workflow is already running' do
+      Bemi.perform_workflow(:sync_registration, context: { email: 'email@example.com' })
+      Bemi.perform_workflow(:sync_registration, context: { email: 'email@example.com' })
+
+      expect {
+        Bemi.perform_workflow(:sync_registration, context: { email: 'email@example.com' })
+      }.to raise_error(Bemi::Runner::ConcurrencyError, "Cannot run more than 2 'sync_registration' workflows at a time")
+    end
   end
 
   describe '.perform_action' do

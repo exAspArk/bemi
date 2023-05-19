@@ -23,11 +23,17 @@ RSpec.describe Bemi::Registrator do
 
       expect(result).to match([
         {
+          name: 'async_registration',
+          actions: an_instance_of(Array),
+          concurrency: nil,
+          context_schema: nil,
+        },
+        {
           name: 'sync_registration',
           actions: an_instance_of(Array),
           concurrency: an_instance_of(Hash),
           context_schema: an_instance_of(Hash),
-        }
+        },
       ])
     end
   end

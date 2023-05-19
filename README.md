@@ -297,7 +297,7 @@ end
 
 Bemi.perform_workflow(:registration, context: { email: 'email@example.com' })
 Bemi.perform_workflow(:registration, context: { email: 'email@example.com' })
-# => Bemi::ConcurrencyError: cannot run more than 1 'registration' workflow at the same time
+# => Bemi::Runner::ConcurrencyError: Cannot run more than 1 'sync_registration' workflow at a time
 ```
 
 #### Workflow querying

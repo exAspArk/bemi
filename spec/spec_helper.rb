@@ -25,4 +25,9 @@ RSpec.configure do |config|
   config.expect_with :rspec do |c|
     c.syntax = :expect
   end
+
+  config.before do
+    Bemi::ApplicationRecord.connection.truncate(Bemi::WorkflowInstance.table_name)
+    Bemi::ApplicationRecord.connection.truncate(Bemi::ActionInstance.table_name)
+  end
 end

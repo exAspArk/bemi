@@ -12,7 +12,7 @@ RSpec.describe Bemi::Workflow do
           { async: nil, concurrency: nil, execution: "sync", name: "send_confirmation_email", on_error: nil, wait_for: nil },
           { async: nil, concurrency: nil, execution: "sync", name: "confirm_email_address", on_error: nil, wait_for: ['send_confirmation_email'] },
         ],
-        concurrency: { limit: 1, on_conflict: 'raise' },
+        concurrency: { limit: 2, on_conflict: 'raise' },
         context_schema: {
           type: 'object',
           properties: {

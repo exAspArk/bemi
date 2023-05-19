@@ -1,7 +1,7 @@
 class SyncRegistrationWorkflow < Bemi::Workflow
   name :sync_registration
 
-  concurrency limit: 1, on_conflict: :raise
+  concurrency limit: 2, on_conflict: :raise
 
   context :object do
     field :email, :string, required: true

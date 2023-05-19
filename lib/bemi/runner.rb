@@ -1,18 +1,30 @@
 # frozen_string_literal: true
 
+require 'digest'
+
 class Bemi::Runner
   InvalidContext = Class.new(StandardError)
   InvalidInput = Class.new(StandardError)
   InvalidOutput = Class.new(StandardError)
   InvalidCustomErrors = Class.new(StandardError)
   WaitingForActionError = Class.new(StandardError)
+  ConcurrencyError = Class.new(StandardError)
 
   class << self
     def perform_workflow(workflow_name, context:)
       workflow_definition = Bemi::Storage.find_workflow_definition!(workflow_name)
       validate!(context, workflow_definition.context_schema, InvalidContext)
+      concurrency_key = Digest::SHA256.hexdigest("#{workflow_name}-#{context.to_json}")
+      limit = workflow_definition.concurrency&.fetch(:limit)
 
-      Bemi::Storage.create_workflow!(workflow_definition, context)
+      if limit && limit <= Bemi::Storage.not_finished_workflow_count(concurrency_key)
+        if workflow_definition.concurrency.fetch(:on_conflict) == Bemi::Workflow::ON_CONFLICT_RAISE
+          raise ConcurrencyError, "Cannot run more than #{limit} '#{workflow_name}' workflows at a time"
+        end
+        return nil
+      end
+
+      Bemi::Storage.create_workflow!(workflow_definition, context: context, concurrency_key: concurrency_key)
     end
 
     def perform_action(action_name, workflow_id:, input:)
