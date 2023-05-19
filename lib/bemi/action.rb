@@ -1,10 +1,17 @@
 # frozen_string_literal: true
 
 class Bemi::Action
+  CustomFailError = Class.new(StandardError)
+
   class << self
     include Bemi::Modules::Schemable
 
-    attr_reader :around_perform_method_names, :input_schema, :context_schema, :output_schema
+    attr_reader :around_perform_method_names,
+      :around_rollback_method_names,
+      :input_schema,
+      :context_schema,
+      :output_schema,
+      :custom_errors_schema
 
     def name(action_name)
       @action_name = action_name
@@ -17,6 +24,10 @@ class Bemi::Action
 
     def context(type, options = {}, &block)
       @context_schema = build_schema(type, options, &block)
+    end
+
+    def custom_errors(type, options = {}, &block)
+      @custom_errors_schema = build_schema(type, options, &block)
     end
 
     def output(type, options = {}, &block)
@@ -34,12 +45,13 @@ class Bemi::Action
     end
   end
 
-  attr_reader :workflow, :input, :context, :output, :rollback_output
+  attr_reader :workflow, :input, :context, :custom_errors, :output
 
   def initialize(workflow:, input:)
     @workflow = workflow
     @input = input.freeze
     @context = {}
+    @custom_errors = {}
   end
 
   def perform_with_around_wrappers
@@ -60,13 +72,27 @@ class Bemi::Action
     raise NotImplementedError
   end
 
-  # TODO: rollback
+  def rollback_with_around_wrappers
+    rollback_block = proc do
+      @output = rollback
+    end
+
+    self.class.around_rollback_method_names&.each do |method_name|
+      rollback_block = send(method_name) do
+        rollback_block
+      end
+    end
+
+    rollback_block.call
+  end
+
   def rollback
   end
 
+  def fail!
+    raise Bemi::Action::CustomFailError
+  end
+
   # wait_for
-  # around_rollback
   # concurrency_key
-  # fail!
-  # add_error
 end

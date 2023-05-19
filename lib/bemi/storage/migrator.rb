@@ -46,7 +46,6 @@ class Bemi::Storage::Migrator
             t.json :output
             t.json :context
             t.json :custom_errors
-            t.json :rollback_output
             t.text :logs
             t.string :concurrency_key, index: true
             t.timestamp :run_at

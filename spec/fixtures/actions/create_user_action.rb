@@ -15,7 +15,6 @@ class CreateUserAction < Bemi::Action
 
   around_perform :test_around_perform1
   around_perform :test_around_perform2
-  around_rollback :test_around_rollback
 
   def perform
     context[:tags] << 'perform'
@@ -32,10 +31,6 @@ class CreateUserAction < Bemi::Action
 
   def test_around_perform2(&block)
     context[:tags] << 'around_perform2'
-    block.call
-  end
-
-  def test_around_rollback(&block)
     block.call
   end
 end

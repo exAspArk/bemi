@@ -10,6 +10,7 @@ Bemi stands for "beginner mindset" and is pronounced as [ˈbɛmɪ].
 * [Code example](#code-example)
 * [Architecture](#architecture)
 * [Usage](#usage)
+  * [Installation](#installation)
   * [Configuration](#configuration)
   * [Workflows](#workflows)
     * [Workflow definition](#workflow-definition)
@@ -22,7 +23,6 @@ Bemi stands for "beginner mindset" and is pronounced as [ˈbɛmɪ].
     * [Action rollback](#action-rollback)
     * [Action querying](#action-querying)
     * [Action concurrency](#action-concurrency)
-* [Installation](#installation)
 * [Alternatives](#alternatives)
 * [License](#license)
 * [Code of Conduct](#code-of-conduct)
@@ -176,6 +176,14 @@ Workers allow running actions that are executed asynchronously or by schedule. B
 See the [Alternatives](#alternatives) section that describes how Bemi is different from other tools you might be familiar with.
 
 ## Usage
+
+### Installation
+
+Add `gem 'bemi'` to your application's Gemfile and execute:
+
+```
+$ bundle install
+```
 
 ### Configuration
 
@@ -371,7 +379,7 @@ class Registration::SendWelcomeEmailAction < Bemi::Action
   def error_handler(&block)
     block.call
   rescue User::InvalidEmail => e
-    add_error!(:email, "Invalid email: #{context[:email]}")
+    custom_errors[:email] = "Invalid email: #{context[:email]}"
     fail! # don't retry if there is an application-level error
   rescue Errno::ECONNRESET => e
     raise e # retry by raising an exception if there is a temporary system-level error
@@ -414,14 +422,10 @@ action.failed?
 action.running?
 action.timed_out?
 
-action.workflow
-action.options
-
 # Persisted and deserialized from JSON
 action.input
 action.output
-action.errors
-action.rollback_output
+action.custom_errors
 action.context
 ```
 
@@ -454,26 +458,6 @@ class Registration::SendWelcomeEmailAction < Bemi::Action
     "#{options[:async][:queue]}-#{input[:user_id]}"
   end
 end
-```
-
-## Installation
-
-Add this line to your application's Gemfile:
-
-```
-gem 'bemi'
-```
-
-And then execute:
-
-```
-$ bundle install
-```
-
-Or install it yourself as:
-
-```
-$ gem install bemi
 ```
 
 ## Alternatives

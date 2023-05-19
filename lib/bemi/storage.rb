@@ -10,8 +10,12 @@ class Bemi::Storage
       :find_workflow_definition!,
       :upsert_workflow_definitions!,
       :create_workflow!,
+      :find_workflow!,
       :create_action!,
-      :find_workflow!
+      :start_action!,
+      :complete_action!,
+      :fail_action!,
+      :transaction
 
     private
 

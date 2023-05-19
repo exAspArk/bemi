@@ -3,12 +3,23 @@
 RSpec.describe Bemi::Validator do
   describe '.validate' do
     it 'returns an error for enum values' do
-      errors = Bemi::Validator.validate({ storage_adapter: 'mongoid', storage_parent_class: 'TestClass' }, Bemi::Config::CONFIGURATION_SCHEMA)
+      errors = Bemi::Validator.validate({
+        storage_adapter: 'mongoid',
+        storage_parent_class: 'RecordClass',
+        worker_adapter: 'active_job',
+        worker_parent_class: 'WorkerClass',
+      }, Bemi::Config::CONFIGURATION_SCHEMA)
       expect(errors).to eq(["The field 'storage_adapter' value 'mongoid' did not match one of the following values: active_record"])
     end
 
     it 'returns an error for unsupported extra values' do
-      errors = Bemi::Validator.validate({ storage_adapter: 'active_record', storage_parent_class: 'TestClass', foo: 'bar' }, Bemi::Config::CONFIGURATION_SCHEMA)
+      errors = Bemi::Validator.validate({
+        storage_adapter: 'active_record',
+        storage_parent_class: 'TestClass',
+        worker_adapter: 'active_job',
+        worker_parent_class: 'WorkerClass',
+        foo: 'bar',
+      }, Bemi::Config::CONFIGURATION_SCHEMA)
       expect(errors).to eq(["The field 'foo' is not supported"])
     end
 

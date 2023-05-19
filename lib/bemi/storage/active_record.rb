@@ -14,7 +14,13 @@ class Bemi::ApplicationRecord < Bemi::Config.configuration.fetch(:storage_parent
   end
 
   def deep_symbolize_attribute_keys(attribute)
-    self[attribute].is_a?(Hash) ? self[attribute].deep_symbolize_keys : self[attribute]
+    if self[attribute].is_a?(Hash)
+      self[attribute].deep_symbolize_keys
+    elsif self[attribute].is_a?(Array)
+      self[attribute].map(&:deep_symbolize_keys)
+    else
+      self[attribute]
+    end
   end
 end
 
@@ -58,6 +64,10 @@ class Bemi::WorkflowInstance < Bemi::ApplicationRecord
 
   after_initialize :set_default_status
 
+  def pending?
+    status == STATUS_PENDING
+  end
+
   def definition
     deep_symbolize_attribute_keys(:definition)
   end
@@ -83,7 +93,6 @@ end
 # t.json :output
 # t.json :context
 # t.json :custom_errors
-# t.json :rollback_output
 # t.text :logs
 # t.string :concurrency_key, index: true
 # t.timestamp :run_at
@@ -98,6 +107,8 @@ class Bemi::ActionInstance < Bemi::ApplicationRecord
   STATUS_FAILED = 'failed'
   STATUS_TIMED_OUT = 'timed_out'
   STATUS_CANCELED = 'canceled'
+
+  belongs_to :workflow, class_name: 'Bemi::WorkflowInstance', foreign_key: :workflow_instance_id
 
   after_initialize :set_default_status
 
@@ -115,10 +126,6 @@ class Bemi::ActionInstance < Bemi::ApplicationRecord
 
   def custom_errors
     deep_symbolize_attribute_keys(:custom_errors)
-  end
-
-  def rollback_output
-    deep_symbolize_attribute_keys(:rollback_output)
   end
 
   private
@@ -161,6 +168,34 @@ class Bemi::Storage::ActiveRecord
         workflow_instance_id: workflow.id,
         input: input,
       )
+    end
+
+    def start_action!(action)
+      action.update!(status: Bemi::ActionInstance::STATUS_RUNNING, started_at: Time.current)
+      action.workflow.update!(status: Bemi::WorkflowInstance::STATUS_RUNNING) if action.workflow.pending?
+    end
+
+    def complete_action!(action, context:, output:)
+      action.update!(
+        status: Bemi::ActionInstance::STATUS_COMPLETED,
+        finished_at: Time.current,
+        context: context,
+        output: output,
+      )
+    end
+
+    def fail_action!(action, context:, custom_errors:, logs:)
+      action.update!(
+        status: Bemi::ActionInstance::STATUS_FAILED,
+        finished_at: Time.current,
+        custom_errors: custom_errors,
+        context: context,
+        logs: logs,
+      )
+    end
+
+    def transaction(&block)
+      Bemi::ApplicationRecord.transaction(&block)
     end
   end
 end

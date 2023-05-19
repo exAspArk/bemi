@@ -7,6 +7,8 @@ Dir.glob('spec/support/**/*.rb').each { |file| require "./#{file}" }
 Bemi.configure do |config|
   config.storage_adapter = :active_record
   config.storage_parent_class = 'ActiveRecord::Base'
+  config.worker_adapter = :active_job
+  config.worker_parent_class = 'ActiveJob::Base'
 end
 
 Bemi::Registrator.sync_workflows!(Dir.glob('spec/fixtures/workflows/**/*.rb'))
