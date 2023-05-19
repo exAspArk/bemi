@@ -24,7 +24,7 @@ class Bemi::Storage::Migrator
           create_table :bemi_workflow_instances, id: :uuid do |t|
             t.string :name, null: false, index: true
             t.json :definition, null: false
-            t.string :status, null: false, index: true
+            t.string :state, null: false, index: true
             t.json :context
             t.timestamp :started_at
             t.timestamp :finished_at
@@ -33,7 +33,7 @@ class Bemi::Storage::Migrator
 
           create_table :bemi_action_instances, id: :uuid do |t|
             t.string :name, null: false, index: true
-            t.string :status, null: false, index: true
+            t.string :state, null: false, index: true
             if connection.raw_connection.is_a?(SQLite3::Database)
               t.string :workflow_instance_id, null: false, index: true
               t.string :retry_action_instance_id, index: true

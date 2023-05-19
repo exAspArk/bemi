@@ -15,6 +15,7 @@ class Bemi::Storage
       :start_action!,
       :complete_action!,
       :fail_action!,
+      :incomplete_action_names,
       :transaction
 
     private

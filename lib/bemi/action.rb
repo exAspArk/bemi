@@ -93,6 +93,5 @@ class Bemi::Action
     raise Bemi::Action::CustomFailError
   end
 
-  # wait_for
-  # concurrency_key
+  # TODO: concurrency_key
 end

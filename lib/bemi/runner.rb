@@ -5,6 +5,7 @@ class Bemi::Runner
   InvalidInput = Class.new(StandardError)
   InvalidOutput = Class.new(StandardError)
   InvalidCustomErrors = Class.new(StandardError)
+  WaitingForActionError = Class.new(StandardError)
 
   class << self
     def perform_workflow(workflow_name, context:)
@@ -17,11 +18,12 @@ class Bemi::Runner
     def perform_action(action_name, workflow_id:, input:)
       action_class = Bemi::Registrator.find_action_class!(action_name)
       validate!(input, action_class.input_schema, InvalidInput)
-
       workflow = Bemi::Storage.find_workflow!(workflow_id)
+      ensure_can_perform_action!(workflow, action_name)
+
       action_instance = nil
       Bemi::Storage.transaction do
-        action_instance = Bemi::Storage.create_action!(action_name, workflow, input)
+        action_instance = Bemi::Storage.create_action!(action_name, workflow.id, input)
         Bemi::Storage.start_action!(action_instance)
       end
 
@@ -41,6 +43,16 @@ class Bemi::Runner
     end
 
     private
+
+    def ensure_can_perform_action!(workflow, action_name)
+      wait_for_action_names = workflow.definition.fetch(:actions).find { |a| a.fetch(:name) == action_name.to_s }[:wait_for]
+      return if wait_for_action_names.nil?
+
+      incomplete_action_names = Bemi::Storage.incomplete_action_names(wait_for_action_names, workflow.id)
+      return if incomplete_action_names.empty?
+
+      raise WaitingForActionError, "Waiting for actions: #{incomplete_action_names.map { |n| "'#{n}'" }.join(', ')}"
+    end
 
     def rollback_action(action_instance, action, perform_error)
       perform_logs = "#{perform_error.class}: #{perform_error.message}\n#{perform_error.backtrace.join("\n")}"

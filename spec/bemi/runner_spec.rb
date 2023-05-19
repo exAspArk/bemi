@@ -18,7 +18,7 @@ RSpec.describe Bemi::Runner do
       workflow = Bemi.perform_workflow(:sync_registration, context: { email: 'email@example.com' })
       expect(workflow.id).to be_a(String)
       expect(workflow.name).to eq('sync_registration')
-      expect(workflow.status).to eq('pending')
+      expect(workflow.state).to eq('pending')
       expect(workflow.context).to eq(email: 'email@example.com')
       expect(workflow.definition).to include(SyncRegistrationWorkflow.definition)
     end
@@ -36,7 +36,7 @@ RSpec.describe Bemi::Runner do
         expect(action_instance.id).to be_a(String)
         expect(action_instance.name).to eq('create_user')
         expect(action_instance.logs).to eq(nil)
-        expect(action_instance.status).to eq('completed')
+        expect(action_instance.state).to eq('completed')
         expect(action_instance.workflow_instance_id).to eq(workflow.id)
         expect(action_instance.input).to eq(password: 'asdf')
         expect(action_instance.retry_count).to eq(0)
@@ -66,7 +66,7 @@ RSpec.describe Bemi::Runner do
         expect(action_instance.id).to be_a(String)
         expect(action_instance.name).to eq('send_confirmation_email')
         expect(action_instance.logs).to be_a(String)
-        expect(action_instance.status).to eq('failed')
+        expect(action_instance.state).to eq('failed')
         expect(action_instance.workflow_instance_id).to eq(workflow.id)
         expect(action_instance.input).to eq({})
         expect(action_instance.retry_count).to eq(0)
@@ -75,6 +75,14 @@ RSpec.describe Bemi::Runner do
         expect(action_instance.context).to eq({ email: 'email@example.com', rollbacked: true, around_rollbacked: true })
         expect(action_instance.output).to eq(nil)
         expect(action_instance.custom_errors).to eq({ email: 'Invalid email: email@example.com' })
+      end
+
+      it 'fails if still waits for another action' do
+        workflow = Bemi.perform_workflow(:sync_registration, context: { email: 'email@example.com', remember_me: true })
+
+        expect {
+          Bemi.perform_action(:confirm_email_address, workflow_id: workflow.id)
+        }.to raise_error(Bemi::Runner::WaitingForActionError, "Waiting for actions: 'send_confirmation_email'")
       end
     end
 

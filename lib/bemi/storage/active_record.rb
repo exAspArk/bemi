@@ -48,24 +48,24 @@ end
 # t.uuid :id, primary_key: true
 # t.string :name, null: false, index: true
 # t.json :definition, null: false
-# t.string :status
+# t.string :state
 # t.json :context
 # t.timestamp :started_at
 # t.timestamp :finished_at
 class Bemi::WorkflowInstance < Bemi::ApplicationRecord
   self.table_name = 'bemi_workflow_instances'
 
-  STATUS_PENDING = 'pending'
-  STATUS_RUNNING = 'running'
-  STATUS_COMPLETED = 'completed'
-  STATUS_FAILED = 'failed'
-  STATUS_TIMED_OUT = 'timed_out'
-  STATUS_CANCELED = 'canceled'
+  STATE_PENDING = 'pending'
+  STATE_RUNNING = 'running'
+  STATE_COMPLETED = 'completed'
+  STATE_FAILED = 'failed'
+  STATE_TIMED_OUT = 'timed_out'
+  STATE_CANCELED = 'canceled'
 
   after_initialize :set_default_status
 
   def pending?
-    status == STATUS_PENDING
+    state == STATE_PENDING
   end
 
   def definition
@@ -79,13 +79,13 @@ class Bemi::WorkflowInstance < Bemi::ApplicationRecord
   private
 
   def set_default_status
-    self.status = STATUS_PENDING if status.nil?
+    self.state = STATE_PENDING if state.nil?
   end
 end
 
 # t.uuid :id, primary_key: true
 # t.string :name, null: false, index: true
-# t.string :status, null: false, index: true
+# t.string :state, null: false, index: true
 # t.uuid :workflow_instance_id, null: false, index: true
 # t.uuid :retry_action_instance_id, index: true
 # t.integer :retry_count, null: false, default: 0
@@ -101,12 +101,12 @@ end
 class Bemi::ActionInstance < Bemi::ApplicationRecord
   self.table_name = 'bemi_action_instances'
 
-  STATUS_PENDING = 'pending'
-  STATUS_RUNNING = 'running'
-  STATUS_COMPLETED = 'completed'
-  STATUS_FAILED = 'failed'
-  STATUS_TIMED_OUT = 'timed_out'
-  STATUS_CANCELED = 'canceled'
+  STATE_PENDING = 'pending'
+  STATE_RUNNING = 'running'
+  STATE_COMPLETED = 'completed'
+  STATE_FAILED = 'failed'
+  STATE_TIMED_OUT = 'timed_out'
+  STATE_CANCELED = 'canceled'
 
   belongs_to :workflow, class_name: 'Bemi::WorkflowInstance', foreign_key: :workflow_instance_id
 
@@ -131,7 +131,7 @@ class Bemi::ActionInstance < Bemi::ApplicationRecord
   private
 
   def set_default_status
-    self.status = STATUS_PENDING if status.nil?
+    self.state = STATE_PENDING if state.nil?
   end
 end
 
@@ -152,7 +152,7 @@ class Bemi::Storage::ActiveRecord
       Bemi::WorkflowInstance.create!(
         name: workflow_definition.name,
         definition: workflow_definition.attributes,
-        status: :pending,
+        state: :pending,
         context: context,
       )
     end
@@ -161,23 +161,23 @@ class Bemi::Storage::ActiveRecord
       Bemi::WorkflowInstance.find(id)
     end
 
-    def create_action!(action_name, workflow, input)
+    def create_action!(action_name, workflow_id, input)
       Bemi::ActionInstance.create!(
         name: action_name,
-        status: :pending,
-        workflow_instance_id: workflow.id,
+        state: :pending,
+        workflow_instance_id: workflow_id,
         input: input,
       )
     end
 
     def start_action!(action)
-      action.update!(status: Bemi::ActionInstance::STATUS_RUNNING, started_at: Time.current)
-      action.workflow.update!(status: Bemi::WorkflowInstance::STATUS_RUNNING) if action.workflow.pending?
+      action.update!(state: Bemi::ActionInstance::STATE_RUNNING, started_at: Time.current)
+      action.workflow.update!(state: Bemi::WorkflowInstance::STATE_RUNNING) if action.workflow.pending?
     end
 
     def complete_action!(action, context:, output:)
       action.update!(
-        status: Bemi::ActionInstance::STATUS_COMPLETED,
+        state: Bemi::ActionInstance::STATE_COMPLETED,
         finished_at: Time.current,
         context: context,
         output: output,
@@ -186,12 +186,17 @@ class Bemi::Storage::ActiveRecord
 
     def fail_action!(action, context:, custom_errors:, logs:)
       action.update!(
-        status: Bemi::ActionInstance::STATUS_FAILED,
+        state: Bemi::ActionInstance::STATE_FAILED,
         finished_at: Time.current,
         custom_errors: custom_errors,
         context: context,
         logs: logs,
       )
+    end
+
+    def incomplete_action_names(action_names, workflow_id)
+      completed_action_names = Bemi::ActionInstance.where(name: action_names, workflow_instance_id: workflow_id, state: Bemi::ActionInstance::STATE_COMPLETED).pluck(:name)
+      action_names - completed_action_names
     end
 
     def transaction(&block)

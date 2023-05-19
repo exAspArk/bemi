@@ -121,7 +121,7 @@ class Bemi::Workflow
     @actions << {
       name: action_name.to_s,
       execution: execution,
-      wait_for: action_options[:wait_for],
+      wait_for: action_options[:wait_for]&.map(&:to_s),
       async: action_options[:async],
       on_error: action_options[:on_error],
       concurrency: action_options[:concurrency],
