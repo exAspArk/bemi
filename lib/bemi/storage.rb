@@ -27,6 +27,7 @@ class Bemi::Storage
       :fail_action!,
       :incomplete_action_names,
       :find_actions!,
+      :set_retry_action!,
       # misc
       :transaction
 

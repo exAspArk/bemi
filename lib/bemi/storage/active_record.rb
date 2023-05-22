@@ -130,6 +130,7 @@ class Bemi::ActionInstance < Bemi::ApplicationRecord
   serialize :custom_errors, CustomJsonSerializer
 
   belongs_to :workflow, class_name: 'Bemi::WorkflowInstance', foreign_key: :workflow_instance_id
+  belongs_to :retry_action, class_name: 'Bemi::ActionInstance', foreign_key: :retry_action_instance_id, optional: true
 
   def pending?
     state == STATE_PENDING
@@ -218,12 +219,13 @@ class Bemi::Storage::ActiveRecord
       Bemi::ActionInstance.find(id)
     end
 
-    def create_action!(action_name, workflow_id, input: nil)
+    def create_action!(action_name, workflow_id, input: nil, retry_count: 0)
       Bemi::ActionInstance.create!(
         name: action_name,
         state: Bemi::ActionInstance::STATE_PENDING,
         workflow_instance_id: workflow_id,
         input: input,
+        retry_count: retry_count,
       )
     end
 
@@ -241,14 +243,19 @@ class Bemi::Storage::ActiveRecord
       )
     end
 
-    def fail_action!(action, context:, custom_errors:, logs:)
+    def fail_action!(action, context:, custom_errors:, logs:, retry_action_id: nil)
       action.update!(
         state: Bemi::ActionInstance::STATE_FAILED,
         finished_at: Time.current,
         custom_errors: custom_errors,
         context: context,
         logs: logs,
+        retry_action_instance_id: retry_action_id,
       )
+    end
+
+    def set_retry_action!(action, retry_action_id:)
+      action.update!(retry_action_instance_id: retry_action_id)
     end
 
     def find_actions!(workflow_id)

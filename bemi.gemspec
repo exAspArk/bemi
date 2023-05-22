@@ -31,6 +31,7 @@ Gem::Specification.new do |spec|
 
   spec.add_dependency "activejob", "~> 7.0"
   spec.add_dependency "activerecord", "~> 7.0"
+  spec.add_dependency "fugit", "~> 1.8"
   spec.add_dependency "json-schema", "~> 4.0"
 
   # For more information and examples about making a new gem, check out our

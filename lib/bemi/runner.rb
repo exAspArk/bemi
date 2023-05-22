@@ -113,7 +113,7 @@ class Bemi::Runner
       rollback_logs = "#{perform_logs}\n\n#{e.class}: #{e.message}\n#{e.backtrace.join("\n")}"
       Bemi::Storage.transaction do
         Bemi::Storage.fail_workflow!(action_instance.workflow) if !action_can_retry?(action_instance)
-        Bemi::Storage.update_workflow_context!(action.workflow, context: action.workflow.context)
+        Bemi::Storage.update_workflow_context!(action_instance.workflow, context: action.workflow.context)
         Bemi::Storage.fail_action!(action_instance, context: action.context, custom_errors: action.custom_errors, logs: rollback_logs)
       end
       raise e

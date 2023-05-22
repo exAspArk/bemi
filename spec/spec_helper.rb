@@ -27,8 +27,12 @@ RSpec.configure do |config|
     c.syntax = :expect
   end
 
+  config.include ActiveJob::TestHelper
+
   config.before do
     Bemi::ApplicationRecord.connection.truncate(Bemi::WorkflowInstance.table_name)
     Bemi::ApplicationRecord.connection.truncate(Bemi::ActionInstance.table_name)
+    clear_enqueued_jobs
+    clear_performed_jobs
   end
 end
