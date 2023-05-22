@@ -7,6 +7,7 @@ class Bemi::BackgroundJob
     extend Forwardable
 
     def_delegators :background_job_class,
+      :new,
       :set,
       :perform_later
 

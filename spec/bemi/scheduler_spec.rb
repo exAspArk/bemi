@@ -35,6 +35,14 @@ RSpec.describe Bemi::Scheduler do
       expect(action.finished_at).to be_a(Time)
     end
 
+    it 'does not execute an async action if there is a concurrency conflict' do
+      Bemi.perform_workflow(:async_registration)
+      Bemi::Scheduler.run
+      Bemi.perform_workflow(:async_registration)
+
+      expect { Bemi::Scheduler.run }.not_to change { Bemi::ActionInstance.count }
+    end
+
     it 'schedules the next action' do
       workflow = Bemi.perform_workflow(:async_registration)
       perform_enqueued_jobs(queue: 'default') { Bemi::Scheduler.run }

@@ -8,9 +8,9 @@ RSpec.describe Bemi::Workflow do
       expect(result).to eq(
         name: 'sync_registration',
         actions: [
-          { async: nil, concurrency: nil, execution:"sync", name: "create_user", on_error: nil, wait_for: nil },
-          { async: nil, concurrency: nil, execution: "sync", name: "send_confirmation_email", on_error: nil, wait_for: nil },
-          { async: nil, concurrency: nil, execution: "sync", name: "confirm_email_address", on_error: nil, wait_for: ['send_confirmation_email'] },
+          { sync: true, async: nil, concurrency: nil, name: "create_user", on_error: nil, wait_for: nil },
+          { sync: true, async: nil, concurrency: nil, name: "send_confirmation_email", on_error: nil, wait_for: nil },
+          { sync: true, async: nil, concurrency: nil, name: "confirm_email_address", on_error: nil, wait_for: ['send_confirmation_email'] },
         ],
         concurrency: { limit: 2, on_conflict: 'raise' },
         context_schema: {

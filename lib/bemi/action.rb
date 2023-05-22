@@ -3,10 +3,13 @@
 class Bemi::Action
   CustomFailError = Class.new(StandardError)
 
+  ON_CONFLICT_RESCHEDULE = 'reschedule'
+
   class << self
     include Bemi::Modules::Schemable
 
-    attr_reader :around_perform_method_names,
+    attr_reader :action_name,
+      :around_perform_method_names,
       :around_rollback_method_names,
       :input_schema,
       :context_schema,
@@ -47,7 +50,7 @@ class Bemi::Action
 
   attr_reader :workflow, :input, :context, :custom_errors, :output
 
-  def initialize(workflow:, input:)
+  def initialize(workflow:, input: nil)
     @workflow = workflow
     @input = input&.freeze
     @context = {}
@@ -89,9 +92,15 @@ class Bemi::Action
   def rollback
   end
 
+  def concurrency_key
+    "#{self.class.action_name}-#{input&.to_json}"
+  end
+
+  def options
+    workflow.definition.fetch(:actions).find { |action| action.fetch(:name) == self.class.action_name.to_s }
+  end
+
   def fail!
     raise Bemi::Action::CustomFailError
   end
-
-  # TODO: concurrency_key
 end

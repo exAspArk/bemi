@@ -124,6 +124,8 @@ class Bemi::ActionInstance < Bemi::ApplicationRecord
   STATE_FAILED = 'failed'
   STATE_CANCELED = 'canceled'
 
+  scope :not_finished, -> { where(state: [STATE_PENDING, STATE_RUNNING]) }
+
   serialize :input, CustomJsonSerializer
   serialize :output, CustomJsonSerializer
   serialize :context, CustomJsonSerializer
@@ -219,13 +221,14 @@ class Bemi::Storage::ActiveRecord
       Bemi::ActionInstance.find(id)
     end
 
-    def create_action!(action_name, workflow_id, input: nil, retry_count: 0)
+    def create_action!(action_name, workflow_id:, input: nil, retry_count: 0, concurrency_key: nil)
       Bemi::ActionInstance.create!(
         name: action_name,
         state: Bemi::ActionInstance::STATE_PENDING,
         workflow_instance_id: workflow_id,
         input: input,
         retry_count: retry_count,
+        concurrency_key: concurrency_key,
       )
     end
 
@@ -260,6 +263,10 @@ class Bemi::Storage::ActiveRecord
 
     def find_actions!(workflow_id)
       Bemi::ActionInstance.where(workflow_instance_id: workflow_id)
+    end
+
+    def not_finished_action_count(concurrency_key)
+      Bemi::ActionInstance.not_finished.where(concurrency_key: concurrency_key).count
     end
 
     def incomplete_action_names(action_names, workflow_id)

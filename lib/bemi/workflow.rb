@@ -7,9 +7,6 @@ class Bemi::Workflow
   ON_CONFLICT_RAISE = 'raise'
   ON_CONFLICT_REJECT = 'reject'
 
-  EXECUTION_SYNC = 'sync'
-  EXECUTION_ASYNC = 'async'
-
   CONCURRENCY_SCHEMA = {
     type: :object,
     properties: {
@@ -48,7 +45,7 @@ class Bemi::Workflow
         type: :object,
         properties: {
           limit: { type: :integer, minimum: 1 },
-          on_conflict: { type: :string, enum: %i[raise reschedule] },
+          on_conflict: { type: :string, enum: %i[reschedule] },
         },
         required: %i[limit on_conflict],
       },
@@ -114,16 +111,9 @@ class Bemi::Workflow
   def action(action_name, action_options)
     validate_action_options!(action_name, action_options)
 
-    execution =
-      if action_options[:sync]
-        EXECUTION_SYNC
-      elsif action_options[:async]
-        EXECUTION_ASYNC
-      end
-
     @actions << {
       name: action_name.to_s,
-      execution: execution,
+      sync: action_options[:sync],
       wait_for: action_options[:wait_for]&.map(&:to_s),
       async: action_options[:async],
       on_error: action_options[:on_error],

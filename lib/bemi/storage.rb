@@ -28,6 +28,7 @@ class Bemi::Storage
       :incomplete_action_names,
       :find_actions!,
       :set_retry_action!,
+      :not_finished_action_count,
       # misc
       :transaction
 

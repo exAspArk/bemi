@@ -14,7 +14,7 @@ class Bemi::Runner
     def perform_workflow(workflow_name, context:)
       workflow_definition = Bemi::Storage.find_workflow_definition!(workflow_name)
       validate!(context, workflow_definition.context_schema, InvalidContext)
-      concurrency_key = Digest::SHA256.hexdigest("#{workflow_name}-#{context.to_json}")
+      concurrency_key = concurrency_key_hash("#{workflow_name}-#{context.to_json}")
 
       limit = workflow_definition.concurrency&.fetch(:limit)
       if limit && limit <= Bemi::Storage.not_finished_workflow_count(concurrency_key)
@@ -32,31 +32,42 @@ class Bemi::Runner
       validate!(input, action_class.input_schema, InvalidInput)
       workflow = Bemi::Storage.find_workflow!(workflow_id)
       wait_for_action_names = action_need_to_wait_for(workflow, action_name)
+      action = action_class.new(workflow: workflow, input: input)
 
       if wait_for_action_names.any?
         raise WaitingForActionError, "Waiting for actions: #{wait_for_action_names.map { |n| "'#{n}'" }.join(', ')}"
       end
 
+      action_definition = workflow.definition.fetch(:actions).find { |a| a.fetch(:name) == action_name.to_s }
+      concurrency_key = concurrency_key_hash(action.concurrency_key)
+      concurrency_action = concurrency_action(action_definition, concurrency_key)
+      if concurrency_action == Bemi::Action::ON_CONFLICT_RESCHEDULE
+        Bemi::Storage.start_workflow!(workflow) if !workflow.running?
+        return
+      end
+
       action_instance = nil
       Bemi::Storage.transaction do
-        action_instance = Bemi::Storage.create_action!(action_name, workflow.id, input: input)
+        action_instance = Bemi::Storage.create_action!(action_name, workflow_id: workflow.id, input: input, concurrency_key: concurrency_key)
         Bemi::Storage.start_action!(action_instance)
         Bemi::Storage.start_workflow!(workflow) if !workflow.running?
       end
 
-      perform_action_with_validations!(action_instance)
+      perform_action_with_validations!(action, action_instance)
     end
 
     def perform_created_action(action_id)
       action_instance = Bemi::Storage.find_action!(action_id)
       workflow = action_instance.workflow
+      action_class = Bemi::Registrator.find_action_class!(action_instance.name)
+      action = action_class.new(workflow: workflow)
 
       Bemi::Storage.transaction do
         Bemi::Storage.start_action!(action_instance)
         Bemi::Storage.start_workflow!(workflow) if !workflow.running?
       end
 
-      perform_action_with_validations!(action_instance)
+      perform_action_with_validations!(action, action_instance)
     end
 
     def workflow_completed_all_actions?(workflow)
@@ -75,12 +86,22 @@ class Bemi::Runner
       retry_count > action_instance.retry_count
     end
 
+    def concurrency_key_hash(value)
+      Digest::SHA256.hexdigest(value.to_s)
+    end
+
+    def concurrency_action(action_definition, concurrency_key)
+      limit = action_definition.dig(:concurrency, :limit)
+      return if !limit || limit > Bemi::Storage.not_finished_action_count(concurrency_key)
+
+      action_definition.fetch(:concurrency).fetch(:on_conflict)
+    end
+
     private
 
-    def perform_action_with_validations!(action_instance, input: nil)
-      workflow = action_instance.workflow
-      action_class = Bemi::Registrator.find_action_class!(action_instance.name)
-      action = action_class.new(workflow: workflow, input: input)
+    def perform_action_with_validations!(action, action_instance, input: nil)
+      workflow = action.workflow
+      action_class = action.class
       action.perform_with_around_wrappers
       validate!(action.context, action_class.context_schema, InvalidContext)
       validate!(action.output, action_class.output_schema, InvalidOutput)

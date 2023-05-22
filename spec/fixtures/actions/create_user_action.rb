@@ -21,6 +21,10 @@ class CreateUserAction < Bemi::Action
     [{ id: 'id' }]
   end
 
+  def concurrency_key
+    options[:queue]
+  end
+
   private
 
   def test_around_perform1(&block)

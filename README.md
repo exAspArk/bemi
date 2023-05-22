@@ -436,7 +436,7 @@ class RegistrationWorkflow < Bemi::Workflow
   name :registration
 
   def perform
-    action :create_user, async: { queue: 'default' }, concurrency: { limit: 1, on_conflict: :reschedule } # or :raise
+    action :create_user, async: { queue: 'default' }, concurrency: { limit: 1, on_conflict: :reschedule }
   end
 end
 ```

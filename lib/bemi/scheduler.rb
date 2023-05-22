@@ -18,21 +18,21 @@ class Bemi::Scheduler
           actions_by_name = Bemi::Storage.find_actions!(workflow.id).group_by(&:name)
 
           action_definitions.each do |action_definition|
-            next if action_definition.fetch(:execution) == Bemi::Workflow::EXECUTION_SYNC
+            next if action_definition.fetch(:sync)
 
             action_name = action_definition.fetch(:name)
             next if Bemi::Runner.action_need_to_wait_for(workflow, action_name).any?
 
             actions = actions_by_name[action_name]
             if actions.nil?
-              perform_action_async!(action_name, action_definition: action_definition, workflow_id: workflow.id)
+              perform_action_async!(action_name, action_definition: action_definition, workflow: workflow)
               next
             end
 
             action = actions_by_name[action_name].select(&:failed?).sort_by(&:retry_count).last
             next if !action || !Bemi::Runner.action_can_retry?(action)
 
-            retry_action_async!(action, action_definition: action_definition, workflow_id: workflow.id)
+            retry_action_async!(action, action_definition: action_definition, workflow: workflow)
           end
         end
       end
@@ -40,24 +40,33 @@ class Bemi::Scheduler
 
     private
 
-    # TODO: concurrency
-
-    def retry_action_async!(action, action_definition:, workflow_id:)
+    def retry_action_async!(action, action_definition:, workflow:)
       options = enqueue_options(action_definition)
+      concurrency_key = concurrency_key(action.name, workflow: workflow)
+      return if Bemi::Runner.concurrency_action(action_definition, concurrency_key) == Bemi::Action::ON_CONFLICT_RESCHEDULE
 
       retry_action = nil
       Bemi::Storage.transaction do
-        retry_action = Bemi::Storage.create_action!(action.name, workflow_id, retry_count: action.retry_count + 1)
+        retry_action = Bemi::Storage.create_action!(action.name, workflow_id: workflow.id, retry_count: action.retry_count + 1, concurrency_key: concurrency_key)
         Bemi::Storage.set_retry_action!(action, retry_action_id: retry_action.id)
       end
 
       Bemi::BackgroundJob.set(options).perform_later(retry_action.id)
     end
 
-    def perform_action_async!(action_name, action_definition:, workflow_id:)
+    def perform_action_async!(action_name, action_definition:, workflow:)
       options = enqueue_options(action_definition)
-      action_instance = Bemi::Storage.create_action!(action_name, workflow_id)
+      concurrency_key = concurrency_key(action_name, workflow: workflow)
+      return if Bemi::Runner.concurrency_action(action_definition, concurrency_key) == Bemi::Action::ON_CONFLICT_RESCHEDULE
+
+      action_instance = Bemi::Storage.create_action!(action_name, workflow_id: workflow.id, concurrency_key: concurrency_key)
       Bemi::BackgroundJob.set(options).perform_later(action_instance.id)
+    end
+
+    def concurrency_key(action_name, workflow:)
+      action_class = Bemi::Registrator.find_action_class!(action_name)
+      action = action_class.new(workflow: workflow)
+      Bemi::Runner.concurrency_key_hash(action.concurrency_key)
     end
 
     def enqueue_options(action_definition)
