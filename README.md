@@ -64,7 +64,7 @@ workflow = Bemi.perform_workflow(:order, context: { order_id: params[:order_id],
 Bemi.perform_action(:process_payment, workflow_id: workflow.id, input: { payment_token: params[:payment_token] })
 
 # Once the payment is processed, the next actions in the workflow
-# will be executed automatically through background workers
+# will be executed automatically through background job workers
 ```
 
 Each action can be implemented in a separate class that can be called "action", "service", "use case", "interactor", "mutation"...  you name it:
@@ -133,24 +133,24 @@ Bemi is designed to be lightweight, composable, and simple to use by default.
 ╵          │  Start "order" workflow        ╵
 ╵          ∨                                ╵
 ╵   ______________                          ╵  [‾‾‾‾‾‾‾‾‾‾‾‾]
-╵  ┆   [Server]   ┆  Run "process_payment"  ╵  [------------]
+╵  ┆  Web Server  ┆  Run "process_payment"  ╵  [------------]
 ╵  ┆     with     ┆⸺⸺⸺⸺⸺⸺⸺⸺⸺> [  Database  ]
 ╵  ┆   Bemi gem   ┆  action synchronously   ╵  [------------]
 ╵   ‾‾‾‾‾‾‾‾‾‾‾‾‾‾                          ╵  [____________]
 ╵                                           ╵        │
 ╵                                           ╵        │
 ╵   ______________                          ╵        │
-╵  |   [Worker]   | Run "send_confirmation" ╵        │
-╵  |  "default"   | <⸺⸺⸺⸺⸺⸺⸺⸺⸺⸺⸺│
-╵  |    queue     |      action async       ╵        │        - - - - - - - - - - - - - - - - - - -
-╵   ‾‾‾‾‾‾‾‾‾‾‾‾‾‾                          ╵        │       ╵                     _____________   ╵
-╵                                           ╵        │       ╵ Run "ship_package" |  [Worker]   |  ╵
-╵                                           ╵        │⸺⸺⸺⸺⸺⸺⸺⸺⸺> | "warehouse" |  ╵
-╵                                           ╵        │       ╵    action async    |    queue    |  ╵
-╵   ______________                          ╵        │       ╵                     ‾‾‾‾‾‾‾‾‾‾‾‾‾   ╵
-╵  |   [Worker]   |  Run "request_feedback" ╵        │       ╵                                     ╵
-╵  |  "default"   | <⸺⸺⸺⸺⸺⸺⸺⸺⸺⸺⸺╵       ╵                                     ╵
-╵  |    queue     |    action by schedule   ╵                ╵                                     ╵
+╵  |  Background  | Run "send_confirmation" ╵        │
+╵  |  Job Worker  | <⸺⸺⸺⸺⸺⸺⸺⸺⸺⸺⸺│
+╵  |  [default]   |      action async       ╵        │        - - - - - - - - - - - - - - - - - - -
+╵   ‾‾‾‾‾‾‾‾‾‾‾‾‾‾                          ╵        │       ╵                     ______________  ╵
+╵                                           ╵        │       ╵ Run "ship_package" |  Background  | ╵
+╵                                           ╵        │⸺⸺⸺⸺⸺⸺⸺⸺⸺> |  Job Worker  | ╵
+╵                                           ╵        │       ╵    action async    |  [warehouse] | ╵
+╵   ______________                          ╵        │       ╵                     ‾‾‾‾‾‾‾‾‾‾‾‾‾‾  ╵
+╵  |  Background  |  Run "request_feedback" ╵        │       ╵                                     ╵
+╵  |  Job Worker  | <⸺⸺⸺⸺⸺⸺⸺⸺⸺⸺⸺╵       ╵                                     ╵
+╵  |  [default]   |    action by schedule   ╵                ╵                                     ╵
 ╵   ‾‾‾‾‾‾‾‾‾‾‾‾‾‾                          ╵                ╵                                     ╵
 ╵                                           ╵                ╵                                     ╵
 ╵              Store service                ╵                ╵          Warehouse service          ╵
@@ -163,15 +163,15 @@ Bemi uses a database to store the workflow execution state. It can work by conne
 
 * Workflows
 
-Bemi orchestrates workflows by relying on a database. When connecting to a database, Bemi first scans the codebase and registers all workflows uniquely identified by `name`. Workflows describe a sequence of actions in Ruby that can be run synchronously in the same process or asynchronously and by schedule in workers.
+Bemi orchestrates workflows by relying on a database. When connecting to a database, Bemi first scans the codebase and registers all workflows uniquely identified by `name`. Workflows describe a sequence of actions in Ruby that can be run synchronously in the same process or asynchronously and by schedule as background jobs.
 
 * Actions
 
 Actions are also uniquely identified by `name`. They can receive data from an input, previously executed actions if they depend on them, and the shared workflow execution context. They can be implemented and executed in any service or application as long as it is connected to the same database instance. So, there is no need to deal with message passing by implementing APIs, callbacks, message buses, data serialization, etc.
 
-* Workers
+* Background jobs
 
-Workers allow running actions that are executed asynchronously or by schedule. Bemi can integrate with ActiveJob or popular background job processing tools like Sidekiq and Que. One worker usually represents a process with multiple threads to enable concurrency. Workers can process one or more `queues` and execute different actions across different workflows simultaneously if they are assigned to the same workers' queues.
+Actions can be scheduled or executed asynchronously by using background jobs workers. Bemi can integrate with ActiveJob or directly with popular background job processing tools like Sidekiq and Que. One worker usually represents a process with multiple threads to enable concurrency. Workers can process one or more `queues` and execute different actions across different workflows simultaneously if they are assigned to the same workers' queues.
 
 See the [Alternatives](#alternatives) section that describes how Bemi is different from other tools you might be familiar with.
 
@@ -187,7 +187,7 @@ $ bundle install
 
 ### Configuration
 
-Configure Bemi before loading you application code:
+Configure Bemi before loading your application code:
 
 ```ruby
 # config/initializers/bemi.rb
@@ -196,8 +196,8 @@ Configure Bemi before loading you application code:
 Bemi.configure do |config|
   config.storage_adapter = :active_record
   config.storage_parent_class = 'ActiveRecord::Base' # or ApplicationRecord, MyCustomConnectionRecord, etc.
-  config.worker_adapter = :active_job
-  config.worker_parent_class = 'ActiveJob::Base' # or ApplicationJob, MyCustomJob, etc.
+  config.background_job_adapter = :active_job
+  config.background_job_parent_class = 'ActiveJob::Base' # or ApplicationJob, MyCustomJob, etc.
 end
 
 # Specify a list of file paths to workflows
@@ -311,7 +311,6 @@ workflow.canceled?
 workflow.completed?
 workflow.failed?
 workflow.running?
-workflow.timed_out?
 
 # Persisted and deserialized from JSON
 workflow.context
@@ -354,7 +353,7 @@ class RegistrationWorkflow < Bemi::Workflow
   name :registration
 
   def perform
-    action :create_user, async: { queue: 'default' }, on_error: { retry: :exponential_backoff } # default retry option
+    action :create_user, async: { queue: 'default' }
     action :send_welcome_email, async: { queue: 'default' }, on_error: { retry: 1 }
   end
 end
@@ -420,7 +419,6 @@ action.canceled?
 action.completed?
 action.failed?
 action.running?
-action.timed_out?
 
 # Persisted and deserialized from JSON
 action.input

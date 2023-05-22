@@ -31,66 +31,90 @@ class Bemi::Runner
       action_class = Bemi::Registrator.find_action_class!(action_name)
       validate!(input, action_class.input_schema, InvalidInput)
       workflow = Bemi::Storage.find_workflow!(workflow_id)
-      ensure_can_perform_action!(workflow, action_name)
+      wait_for_action_names = action_need_to_wait_for(workflow, action_name)
+
+      if wait_for_action_names.any?
+        raise WaitingForActionError, "Waiting for actions: #{wait_for_action_names.map { |n| "'#{n}'" }.join(', ')}"
+      end
 
       action_instance = nil
       Bemi::Storage.transaction do
-        action_instance = Bemi::Storage.create_action!(action_name, workflow.id, input)
+        action_instance = Bemi::Storage.create_action!(action_name, workflow.id, input: input)
         Bemi::Storage.start_action!(action_instance)
-        Bemi::Storage.start_workflow!(workflow)
+        Bemi::Storage.start_workflow!(workflow) if !workflow.running?
       end
 
-      begin
-        action = action_class.new(workflow: workflow, input: input)
-        action.perform_with_around_wrappers
-        validate!(action.context, action_class.context_schema, InvalidContext)
-        validate!(action.output, action_class.output_schema, InvalidOutput)
-        Bemi::Storage.transaction do
-          Bemi::Storage.complete_action!(action_instance, context: action.context, output: action.output)
-          Bemi::Storage.update_workflow_context!(workflow, context: action.workflow.context)
-          if Bemi::Storage.incomplete_action_names(workflow.definition.fetch(:actions).map { |a| a.fetch(:name) }, workflow.id).empty?
-            Bemi::Storage.complete_workflow!(action.workflow)
-          end
-        end
-        action.output
-      rescue StandardError => perform_error
-        rollback_action(action_instance, action, perform_error)
-        validate!(action.context, action_class.context_schema, InvalidContext)
-        validate!(action.custom_errors, action_class.custom_errors_schema, InvalidCustomErrors)
-        raise perform_error
+      perform_action_with_validations!(action_instance)
+    end
+
+    def perform_created_action(action_id)
+      action_instance = Bemi::Storage.find_action!(action_id)
+      workflow = action_instance.workflow
+
+      Bemi::Storage.transaction do
+        Bemi::Storage.start_action!(action_instance)
+        Bemi::Storage.start_workflow!(workflow) if !workflow.running?
       end
+
+      perform_action_with_validations!(action_instance)
+    end
+
+    def workflow_completed_all_actions?(workflow)
+      Bemi::Storage.incomplete_action_names(workflow.definition.fetch(:actions).map { |a| a.fetch(:name) }, workflow.id).empty?
+    end
+
+    def action_need_to_wait_for(workflow, action_name)
+      wait_for_action_names = action_definition(workflow, action_name).fetch(:wait_for)
+      return [] if wait_for_action_names.nil?
+
+      Bemi::Storage.incomplete_action_names(wait_for_action_names, workflow.id)
+    end
+
+    def action_can_retry?(action_instance)
+      retry_count = action_definition(action_instance.workflow, action_instance.name).fetch(:on_error)&.fetch(:retry) || 0
+      retry_count > action_instance.retry_count
     end
 
     private
 
-    def ensure_can_perform_action!(workflow, action_name)
-      wait_for_action_names = workflow.definition.fetch(:actions).find { |a| a.fetch(:name) == action_name.to_s }[:wait_for]
-      return if wait_for_action_names.nil?
+    def perform_action_with_validations!(action_instance, input: nil)
+      workflow = action_instance.workflow
+      action_class = Bemi::Registrator.find_action_class!(action_instance.name)
+      action = action_class.new(workflow: workflow, input: input)
+      action.perform_with_around_wrappers
+      validate!(action.context, action_class.context_schema, InvalidContext)
+      validate!(action.output, action_class.output_schema, InvalidOutput)
+      Bemi::Storage.transaction do
+        Bemi::Storage.complete_action!(action_instance, context: action.context, output: action.output)
+        Bemi::Storage.update_workflow_context!(workflow, context: action.workflow.context)
+        Bemi::Storage.complete_workflow!(workflow) if workflow_completed_all_actions?(workflow)
+      end
+      action.output
+    rescue StandardError => perform_error
+      rollback_action(action_instance, action, perform_error)
+      validate!(action.context, action_class.context_schema, InvalidContext)
+      validate!(action.custom_errors, action_class.custom_errors_schema, InvalidCustomErrors)
+      raise perform_error
+    end
 
-      incomplete_action_names = Bemi::Storage.incomplete_action_names(wait_for_action_names, workflow.id)
-      return if incomplete_action_names.empty?
-
-      raise WaitingForActionError, "Waiting for actions: #{incomplete_action_names.map { |n| "'#{n}'" }.join(', ')}"
+    def action_definition(workflow, action_name)
+      workflow.definition.fetch(:actions).find { |a| a.fetch(:name) == action_name.to_s }
     end
 
     def rollback_action(action_instance, action, perform_error)
       perform_logs = "#{perform_error.class}: #{perform_error.message}\n#{perform_error.backtrace.join("\n")}"
       action.rollback_with_around_wrappers
       Bemi::Storage.transaction do
-        Bemi::Storage.fail_workflow!(action_instance.workflow)
+        Bemi::Storage.fail_workflow!(action_instance.workflow) if !action_can_retry?(action_instance)
         Bemi::Storage.update_workflow_context!(action.workflow, context: action.workflow.context)
         Bemi::Storage.fail_action!(action_instance, context: action.context, custom_errors: action.custom_errors, logs: perform_logs)
       end
     rescue StandardError => e
+      rollback_logs = "#{perform_logs}\n\n#{e.class}: #{e.message}\n#{e.backtrace.join("\n")}"
       Bemi::Storage.transaction do
-        Bemi::Storage.fail_workflow!(action_instance.workflow)
+        Bemi::Storage.fail_workflow!(action_instance.workflow) if !action_can_retry?(action_instance)
         Bemi::Storage.update_workflow_context!(action.workflow, context: action.workflow.context)
-        Bemi::Storage.fail_action!(
-          action_instance,
-          context: action.context,
-          custom_errors: action.custom_errors,
-          logs: "#{perform_logs}\n\n#{e.class}: #{e.message}\n#{e.backtrace.join("\n")}",
-        )
+        Bemi::Storage.fail_action!(action_instance, context: action.context, custom_errors: action.custom_errors, logs: rollback_logs)
       end
       raise e
     end

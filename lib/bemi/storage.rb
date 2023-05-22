@@ -12,17 +12,21 @@ class Bemi::Storage
       :upsert_workflow_definitions!,
       :create_workflow!,
       :find_workflow!,
+      :find_and_lock_workflow!,
       :start_workflow!,
       :complete_workflow!,
       :fail_workflow!,
       :update_workflow_context!,
+      :not_finished_workflow_ids,
       :not_finished_workflow_count,
       # actions
+      :find_action!,
       :create_action!,
       :start_action!,
       :complete_action!,
       :fail_action!,
       :incomplete_action_names,
+      :find_actions!,
       # misc
       :transaction
 

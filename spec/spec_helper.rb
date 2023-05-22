@@ -1,19 +1,20 @@
 # frozen_string_literal: true
 
 require "bemi"
+require 'active_job'
 
 Dir.glob('spec/support/**/*.rb').each { |file| require "./#{file}" }
 
 Bemi.configure do |config|
   config.storage_adapter = :active_record
   config.storage_parent_class = 'ActiveRecord::Base'
-  config.worker_adapter = :active_job
-  config.worker_parent_class = 'ActiveJob::Base'
+  config.background_job_adapter = :active_job
+  config.background_job_parent_class = 'ActiveJob::Base'
 end
-
 Bemi::Registrator.sync_workflows!(Dir.glob('spec/fixtures/workflows/**/*.rb'))
-
 Dir.glob('spec/fixtures/actions/**/*.rb').each { |file| require "./#{file}" }
+
+ActiveJob::Base.queue_adapter = :test
 
 RSpec.configure do |config|
   # Enable flags like --only-failures and --next-failure

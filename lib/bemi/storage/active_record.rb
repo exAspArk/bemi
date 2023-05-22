@@ -61,7 +61,6 @@ class Bemi::WorkflowInstance < Bemi::ApplicationRecord
   STATE_RUNNING = 'running'
   STATE_COMPLETED = 'completed'
   STATE_FAILED = 'failed'
-  STATE_TIMED_OUT = 'timed_out'
   STATE_CANCELED = 'canceled'
 
   serialize :definition, CustomJsonSerializer
@@ -71,6 +70,26 @@ class Bemi::WorkflowInstance < Bemi::ApplicationRecord
 
   def pending?
     state == STATE_PENDING
+  end
+
+  def running?
+    state == STATE_RUNNING
+  end
+
+  def completed?
+    state == STATE_COMPLETED
+  end
+
+  def failed?
+    state == STATE_FAILED
+  end
+
+  def canceled?
+    state == STATE_CANCELED
+  end
+
+  def finished?
+    completed? || failed? || canceled?
   end
 
   private
@@ -103,7 +122,6 @@ class Bemi::ActionInstance < Bemi::ApplicationRecord
   STATE_RUNNING = 'running'
   STATE_COMPLETED = 'completed'
   STATE_FAILED = 'failed'
-  STATE_TIMED_OUT = 'timed_out'
   STATE_CANCELED = 'canceled'
 
   serialize :input, CustomJsonSerializer
@@ -112,6 +130,26 @@ class Bemi::ActionInstance < Bemi::ApplicationRecord
   serialize :custom_errors, CustomJsonSerializer
 
   belongs_to :workflow, class_name: 'Bemi::WorkflowInstance', foreign_key: :workflow_instance_id
+
+  def pending?
+    state == STATE_PENDING
+  end
+
+  def running?
+    state == STATE_RUNNING
+  end
+
+  def completed?
+    state == STATE_COMPLETED
+  end
+
+  def failed?
+    state == STATE_FAILED
+  end
+
+  def canceled?
+    state == STATE_CANCELED
+  end
 
   private
 
@@ -160,15 +198,27 @@ class Bemi::Storage::ActiveRecord
       Bemi::WorkflowInstance.find(id)
     end
 
+    def find_and_lock_workflow!(id)
+      Bemi::WorkflowInstance.lock.find(id)
+    end
+
     def update_workflow_context!(workflow, context:)
       workflow.update!(context: context)
+    end
+
+    def not_finished_workflow_ids
+      Bemi::WorkflowInstance.not_finished.pluck(:id)
     end
 
     def not_finished_workflow_count(concurrency_key)
       Bemi::WorkflowInstance.not_finished.where(concurrency_key: concurrency_key).count
     end
 
-    def create_action!(action_name, workflow_id, input)
+    def find_action!(id)
+      Bemi::ActionInstance.find(id)
+    end
+
+    def create_action!(action_name, workflow_id, input: nil)
       Bemi::ActionInstance.create!(
         name: action_name,
         state: Bemi::ActionInstance::STATE_PENDING,
@@ -199,6 +249,10 @@ class Bemi::Storage::ActiveRecord
         context: context,
         logs: logs,
       )
+    end
+
+    def find_actions!(workflow_id)
+      Bemi::ActionInstance.where(workflow_instance_id: workflow_id)
     end
 
     def incomplete_action_names(action_names, workflow_id)

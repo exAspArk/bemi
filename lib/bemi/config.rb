@@ -13,15 +13,15 @@ class Bemi::Config
       storage_parent_class: {
         type: :string,
       },
-      worker_adapter: {
+      background_job_adapter: {
         type: :string,
         enum: %i[active_job],
       },
-      worker_parent_class: {
+      background_job_parent_class: {
         type: :string,
       },
     },
-    required: %i[storage_adapter storage_parent_class worker_adapter worker_parent_class],
+    required: %i[storage_adapter storage_parent_class background_job_adapter background_job_parent_class],
   }
 
   STORAGE_ADAPTER_ACTIVE_RECORD = :active_record
@@ -29,13 +29,14 @@ class Bemi::Config
   DEFAULT_STORAGE_ADAPTER = STORAGE_ADAPTER_ACTIVE_RECORD
   DEFAULT_STORAGE_PARENT_CLASS = 'ActiveRecord::Base'
 
-  DEFAULT_WORKER_ADAPTER = :active_job
-  DEFAULT_WORKER_PARENT_CLASS = 'ActiveJob::Base'
+  BACKGROUND_JOB_ADAPTER_ACTIVE_JOB = :active_job
+  DEFAULT_BACKGROUND_JOB_ADAPTER = BACKGROUND_JOB_ADAPTER_ACTIVE_JOB
+  DEFAULT_BACKGROUND_JOB_PARENT_CLASS = 'ActiveJob::Base'
 
   class << self
     def configure(&block)
       block.call(self)
-      Bemi::Scheduler.launch
+      Bemi::Scheduler.daemonize
     end
 
     def storage_adapter=(storage_adapter)
@@ -48,13 +49,13 @@ class Bemi::Config
       validate_configuration!
     end
 
-    def worker_adapter=(worker_adapter)
-      self.configuration[:worker_adapter] = worker_adapter
+    def background_job_adapter=(background_job_adapter)
+      self.configuration[:background_job_adapter] = background_job_adapter
       validate_configuration!
     end
 
-    def worker_parent_class=(worker_parent_class)
-      self.configuration[:worker_parent_class] = worker_parent_class
+    def background_job_parent_class=(background_job_parent_class)
+      self.configuration[:background_job_parent_class] = background_job_parent_class
       validate_configuration!
     end
 
@@ -62,8 +63,8 @@ class Bemi::Config
       @configuration ||= {
         storage_adapter: DEFAULT_STORAGE_ADAPTER,
         storage_parent_class: DEFAULT_STORAGE_PARENT_CLASS,
-        worker_adapter: DEFAULT_WORKER_ADAPTER,
-        worker_parent_class: DEFAULT_WORKER_PARENT_CLASS,
+        background_job_adapter: DEFAULT_BACKGROUND_JOB_ADAPTER,
+        background_job_parent_class: DEFAULT_BACKGROUND_JOB_PARENT_CLASS,
       }
     end
 

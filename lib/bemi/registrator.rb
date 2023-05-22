@@ -24,11 +24,11 @@ class Bemi::Registrator
       @action_class_by_name ||= {}
 
       validate_action_name_uniqueness!(action_name)
-      @action_class_by_name[action_name] = action_class
+      @action_class_by_name[action_name.to_s] = action_class
     end
 
     def find_action_class!(action_name)
-      action_class = @action_class_by_name[action_name]
+      action_class = @action_class_by_name[action_name.to_s]
       raise NoActionFoundError, "Action '#{action_name}' is not found" if !action_class
 
       action_class
@@ -43,7 +43,7 @@ class Bemi::Registrator
     end
 
     def validate_action_name_uniqueness!(action_name)
-      return if !@action_class_by_name[action_name]
+      return if !@action_class_by_name[action_name.to_s]
 
       raise Bemi::Registrator::DuplicateActionNameError, "Action '#{action_name}' is already registered"
     end

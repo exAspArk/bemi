@@ -25,12 +25,12 @@ module Bemi::Modules
     private
 
     def array_type?(type)
-      type.is_a?(Hash) && type[:array]
+      type.is_a?(Hash) && type.fetch(:array)
     end
 
     def schema_type(type)
       if array_type?(type)
-        { type: 'array', items: { type: type[:array].to_s } }
+        { type: 'array', items: { type: type.fetch(:array).to_s } }
       else
         { type: type.to_s }
       end

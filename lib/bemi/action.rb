@@ -49,7 +49,7 @@ class Bemi::Action
 
   def initialize(workflow:, input:)
     @workflow = workflow
-    @input = input.freeze
+    @input = input&.freeze
     @context = {}
     @custom_errors = {}
   end

@@ -67,7 +67,7 @@ class Bemi::Workflow
       validate_concurrency_options!(concurrency_options)
 
       @concurrency_options = concurrency_options.merge(
-        on_conflict: concurrency_options[:on_conflict].to_s,
+        on_conflict: concurrency_options.fetch(:on_conflict).to_s,
       )
     end
 
@@ -140,7 +140,7 @@ class Bemi::Workflow
     end
 
     if action_options[:wait_for]
-      unknown_action_names = action_options[:wait_for].select { |action_name| @actions.none? { |action| action[:name] == action_name.to_s } }
+      unknown_action_names = action_options.fetch(:wait_for).select { |action_name| @actions.none? { |action| action.fetch(:name) == action_name.to_s } }
       return if unknown_action_names.empty?
 
       raise Bemi::Workflow::InvalidActionDefinitionError, "Action '#{action_name}' waits for unknown action names: #{unknown_action_names.map { |a| "'#{a}'" }.join(', ')}"
