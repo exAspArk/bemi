@@ -204,7 +204,7 @@ end
 Bemi::Registrator.sync_workflows!(Dir.glob('app/workflows/**/*.rb'))
 ```
 
-Prepare your database by creating a database migration with `bundle exec rails g migration create_bemi_tables `:
+Prepare your database by creating a database migration with `bundle exec rails g migration create_bemi_tables`:
 
 ```ruby
 # db/migrate/20230518121110_create_bemi_tables.rb
@@ -314,8 +314,6 @@ workflow.running?
 
 # Persisted and deserialized from JSON
 workflow.context
-
-Bemi.perform_action(:confirm_email_address, workflow_id: workflow.id)
 ```
 
 ### Actions
@@ -482,11 +480,11 @@ Bemi orchestrates workflows instead of trying to choreograph them. This makes it
 
 Tools like Temporal, AWS Step Functions, Argo Workflows, and Airflow allow orchestrating workflows, although they use quite different approaches.
 
-Temporal was born based on challenges faced by big-tech and enterprise companies. As a result, it has a complex architecture with deployed clusters, different databases like Cassandra and optional Elasticsearch, and multiple services for frontend, matching, history, etc. It was initially designed for programming languages like Java and Go. Some would argue that the development and user experience are quite rough. Plus, at the time of this writing, it doesn't have an official stable SDK for our favorite programming language (Ruby).
+Temporal was born based on challenges faced by big-tech and enterprise companies. As a result, it has a complex architecture with deployed clusters, support for databases like Cassandra and optional Elasticsearch, and multiple services for frontend, matching, history, etc. Its main differentiator is writing workflows imperatively instead of describing them declaratively (think of state machines). This makes code a lot more complex and forces you to mix business logic with implementation and execution details. Some would argue that Temporal's development and user experience are quite rough. Plus, at the time of this writing, it doesn't have an official stable SDK for our favorite programming language (Ruby).
 
 AWS Step Functions rely on using AWS Lambda to execute each action in a workflow. For various reasons, not everyone can use AWS and their serverless solution. Additionally, workflows should be defined in JSON by using Amazon States Language instead of using a regular programming language.
 
-Argo Workflows relies on using Kubernetes. It is closer to infrastructure-level workflows since it relies on running a container for each workflow action and doesn't provide code-level features. Additionally, it requires defining workflows in YAML.
+Argo Workflows rely on using Kubernetes. It is closer to infrastructure-level workflows since it relies on running a container for each workflow action and doesn't provide code-level features and primitives. Additionally, it requires defining workflows in YAML.
 
 Airflow is a popular tool for data engineering pipelines. Unfortunately, it can work only with Python.
 
