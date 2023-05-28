@@ -1,4 +1,4 @@
-class SendConfirmationEmailAction < Bemi::Action
+class SendConfirmationEmailStep < Bemi::Step
   name :send_confirmation_email
 
   around_rollback :test_around_rollback

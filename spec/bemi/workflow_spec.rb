@@ -2,12 +2,12 @@
 
 RSpec.describe Bemi::Workflow do
   describe '.definition' do
-    it 'returns a list of actions' do
+    it 'returns a list of steps' do
       result = SyncRegistrationWorkflow.definition
 
       expect(result).to eq(
         name: 'sync_registration',
-        actions: [
+        steps: [
           { sync: true, async: nil, concurrency: nil, name: "create_user", on_error: nil, wait_for: nil },
           { sync: true, async: nil, concurrency: nil, name: "send_confirmation_email", on_error: nil, wait_for: nil },
           { sync: true, async: nil, concurrency: nil, name: "confirm_email_address", on_error: nil, wait_for: ['send_confirmation_email'] },
@@ -24,34 +24,34 @@ RSpec.describe Bemi::Workflow do
       )
     end
 
-    it "raises an error if an action definition doesn't specify 'sync' or 'async'" do
+    it "raises an error if an step definition doesn't specify 'sync' or 'async'" do
       workflow_class = Class.new(Bemi::Workflow)
       workflow_class.class_eval do
         name SecureRandom.hex
 
         def perform
-          action :test_action, on_error: { retry: 1 }
+          step :test_step, on_error: { retry: 1 }
         end
       end
 
       expect {
         workflow_class.definition
-      }.to raise_error(Bemi::Workflow::InvalidActionDefinitionError, "Action 'test_action' must be either 'sync' or 'async'")
+      }.to raise_error(Bemi::Workflow::InvalidStepDefinitionError, "Step 'test_step' must be either 'sync' or 'async'")
     end
 
-    it 'raises an error if an action waits for an invalid action' do
+    it 'raises an error if an step waits for an invalid step' do
       workflow_class = Class.new(Bemi::Workflow)
       workflow_class.class_eval do
         name SecureRandom.hex
 
         def perform
-          action :test_action, async: { queue: 'default' }, wait_for: [:action1, :action2]
+          step :test_step, async: { queue: 'default' }, wait_for: [:step1, :step2]
         end
       end
 
       expect {
         workflow_class.definition
-      }.to raise_error(Bemi::Workflow::InvalidActionDefinitionError, "Action 'test_action' waits for unknown action names: 'action1', 'action2'")
+      }.to raise_error(Bemi::Workflow::InvalidStepDefinitionError, "Step 'test_step' waits for unknown step names: 'step1', 'step2'")
     end
   end
 

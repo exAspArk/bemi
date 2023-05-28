@@ -14,25 +14,25 @@ class Bemi::Scheduler
           workflow = Bemi::Storage.find_and_lock_workflow!(workflow_id)
           next if workflow.finished?
 
-          action_definitions = workflow.definition.fetch(:actions)
-          actions_by_name = Bemi::Storage.find_actions!(workflow.id).group_by(&:name)
+          step_definitions = workflow.definition.fetch(:steps)
+          steps_by_name = Bemi::Storage.find_steps!(workflow.id).group_by(&:name)
 
-          action_definitions.each do |action_definition|
-            next if action_definition.fetch(:sync)
+          step_definitions.each do |step_definition|
+            next if step_definition.fetch(:sync)
 
-            action_name = action_definition.fetch(:name)
-            next if Bemi::Runner.action_need_to_wait_for(workflow, action_name).any?
+            step_name = step_definition.fetch(:name)
+            next if Bemi::Runner.step_need_to_wait_for(workflow, step_name).any?
 
-            actions = actions_by_name[action_name]
-            if actions.nil?
-              perform_action_async!(action_name, action_definition: action_definition, workflow: workflow)
+            steps = steps_by_name[step_name]
+            if steps.nil?
+              perform_step_async!(step_name, step_definition: step_definition, workflow: workflow)
               next
             end
 
-            action = actions_by_name[action_name].select(&:failed?).sort_by(&:retry_count).last
-            next if !action || !Bemi::Runner.action_can_retry?(action)
+            step = steps_by_name[step_name].select(&:failed?).sort_by(&:retry_count).last
+            next if !step || !Bemi::Runner.step_can_retry?(step)
 
-            retry_action_async!(action, action_definition: action_definition, workflow: workflow)
+            retry_step_async!(step, step_definition: step_definition, workflow: workflow)
           end
         end
       end
@@ -40,47 +40,47 @@ class Bemi::Scheduler
 
     private
 
-    def retry_action_async!(action, action_definition:, workflow:)
-      options = enqueue_options(action_definition)
-      concurrency_key = concurrency_key(action.name, workflow: workflow)
-      return if Bemi::Runner.concurrency_action(action_definition, concurrency_key) == Bemi::Action::ON_CONFLICT_RESCHEDULE
+    def retry_step_async!(step, step_definition:, workflow:)
+      options = enqueue_options(step_definition)
+      concurrency_key = concurrency_key(step.name, workflow: workflow)
+      return if Bemi::Runner.concurrency_step(step_definition, concurrency_key) == Bemi::Step::ON_CONFLICT_RESCHEDULE
 
-      retry_action = nil
+      retry_step = nil
       Bemi::Storage.transaction do
-        retry_action = Bemi::Storage.create_action!(action.name, workflow_id: workflow.id, retry_count: action.retry_count + 1, concurrency_key: concurrency_key)
-        Bemi::Storage.set_retry_action!(action, retry_action_id: retry_action.id)
+        retry_step = Bemi::Storage.create_step!(step.name, workflow_id: workflow.id, retry_count: step.retry_count + 1, concurrency_key: concurrency_key)
+        Bemi::Storage.set_retry_step!(step, retry_step_id: retry_step.id)
       end
 
-      Bemi::BackgroundJob.set(options).perform_later(retry_action.id)
+      Bemi::BackgroundJob.set(options).perform_later(retry_step.id)
     end
 
-    def perform_action_async!(action_name, action_definition:, workflow:)
-      options = enqueue_options(action_definition)
-      concurrency_key = concurrency_key(action_name, workflow: workflow)
-      return if Bemi::Runner.concurrency_action(action_definition, concurrency_key) == Bemi::Action::ON_CONFLICT_RESCHEDULE
+    def perform_step_async!(step_name, step_definition:, workflow:)
+      options = enqueue_options(step_definition)
+      concurrency_key = concurrency_key(step_name, workflow: workflow)
+      return if Bemi::Runner.concurrency_step(step_definition, concurrency_key) == Bemi::Step::ON_CONFLICT_RESCHEDULE
 
-      action_instance = Bemi::Storage.create_action!(action_name, workflow_id: workflow.id, concurrency_key: concurrency_key)
-      Bemi::BackgroundJob.set(options).perform_later(action_instance.id)
+      step_instance = Bemi::Storage.create_step!(step_name, workflow_id: workflow.id, concurrency_key: concurrency_key)
+      Bemi::BackgroundJob.set(options).perform_later(step_instance.id)
     end
 
-    def concurrency_key(action_name, workflow:)
-      action_class = Bemi::Registrator.find_action_class!(action_name)
-      action = action_class.new(workflow: workflow)
-      Bemi::Runner.concurrency_key_hash(action.concurrency_key)
+    def concurrency_key(step_name, workflow:)
+      step_class = Bemi::Registrator.find_step_class!(step_name)
+      step = step_class.new(workflow: workflow)
+      Bemi::Runner.concurrency_key_hash(step.concurrency_key)
     end
 
-    def enqueue_options(action_definition)
-      options = { queue: action_definition.fetch(:async).fetch(:queue) }
+    def enqueue_options(step_definition)
+      options = { queue: step_definition.fetch(:async).fetch(:queue) }
 
-      if delay = action_definition.dig(:async, :delay)
+      if delay = step_definition.dig(:async, :delay)
         options[:wait] = delay
       end
 
-      if cron = action_definition.dig(:async, :cron)
+      if cron = step_definition.dig(:async, :cron)
         options[:wait_until] = Fugit::Cron.parse(cron).next_time
       end
 
-      if priority = action_definition.dig(:async, :priority)
+      if priority = step_definition.dig(:async, :priority)
         options[:priority] = priority
       end
 

@@ -2,12 +2,14 @@
 
 class Bemi::Registrator
   DuplicateWorkflowNameError = Class.new(StandardError)
-  DuplicateActionNameError = Class.new(StandardError)
-  NoActionFoundError = Class.new(StandardError)
+  DuplicateStepNameError = Class.new(StandardError)
+  NoStepFoundError = Class.new(StandardError)
 
   class << self
     def sync_workflows!(files)
+      @workflow_class_by_name ||= {}
       files.each { |file| require "./#{file}" }
+
       workflow_definitions = @workflow_class_by_name.values.map(&:definition)
       Bemi::Storage.upsert_workflow_definitions!(workflow_definitions)
       workflow_definitions
@@ -20,18 +22,18 @@ class Bemi::Registrator
       @workflow_class_by_name[workflow_name] = workflow_class
     end
 
-    def add_action(action_name, action_class)
-      @action_class_by_name ||= {}
+    def add_step(step_name, step_class)
+      @step_class_by_name ||= {}
 
-      validate_action_name_uniqueness!(action_name)
-      @action_class_by_name[action_name.to_s] = action_class
+      validate_step_name_uniqueness!(step_name)
+      @step_class_by_name[step_name.to_s] = step_class
     end
 
-    def find_action_class!(action_name)
-      action_class = @action_class_by_name[action_name.to_s]
-      raise NoActionFoundError, "Action '#{action_name}' is not found" if !action_class
+    def find_step_class!(step_name)
+      step_class = @step_class_by_name[step_name.to_s]
+      raise NoStepFoundError, "Step '#{step_name}' is not found" if !step_class
 
-      action_class
+      step_class
     end
 
     private
@@ -42,10 +44,10 @@ class Bemi::Registrator
       raise Bemi::Registrator::DuplicateWorkflowNameError, "Workflow '#{workflow_name}' is already registered"
     end
 
-    def validate_action_name_uniqueness!(action_name)
-      return if !@action_class_by_name[action_name.to_s]
+    def validate_step_name_uniqueness!(step_name)
+      return if !@step_class_by_name[step_name.to_s]
 
-      raise Bemi::Registrator::DuplicateActionNameError, "Action '#{action_name}' is already registered"
+      raise Bemi::Registrator::DuplicateStepNameError, "Step '#{step_name}' is already registered"
     end
   end
 end

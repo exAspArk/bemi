@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-class Bemi::Action
+class Bemi::Step
   CustomFailError = Class.new(StandardError)
 
   ON_CONFLICT_RESCHEDULE = 'reschedule'
@@ -8,7 +8,7 @@ class Bemi::Action
   class << self
     include Bemi::Modules::Schemable
 
-    attr_reader :action_name,
+    attr_reader :step_name,
       :around_perform_method_names,
       :around_rollback_method_names,
       :input_schema,
@@ -16,9 +16,9 @@ class Bemi::Action
       :output_schema,
       :custom_errors_schema
 
-    def name(action_name)
-      @action_name = action_name
-      Bemi::Registrator.add_action(action_name, self)
+    def name(step_name)
+      @step_name = step_name
+      Bemi::Registrator.add_step(step_name, self)
     end
 
     def input(type, options = {}, &block)
@@ -93,14 +93,14 @@ class Bemi::Action
   end
 
   def concurrency_key
-    "#{self.class.action_name}-#{input&.to_json}"
+    "#{self.class.step_name}-#{input&.to_json}"
   end
 
   def options
-    workflow.definition.fetch(:actions).find { |action| action.fetch(:name) == self.class.action_name.to_s }
+    workflow.definition.fetch(:steps).find { |step| step.fetch(:name) == self.class.step_name.to_s }
   end
 
   def fail!
-    raise Bemi::Action::CustomFailError
+    raise Bemi::Step::CustomFailError
   end
 end

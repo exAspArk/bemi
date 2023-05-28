@@ -33,40 +33,40 @@ RSpec.describe Bemi::Runner do
     end
   end
 
-  describe '.perform_action' do
+  describe '.perform_step' do
     context 'complete' do
-      it 'creates an action instance' do
+      it 'creates an step instance' do
         workflow = Bemi.perform_workflow(:sync_registration, context: { email: 'email@example.com' })
         expect {
-          Bemi.perform_action(:create_user, workflow_id: workflow.id, input: { password: 'asdf' })
-        }.to change { Bemi::ActionInstance.count }.by(1)
+          Bemi.perform_step(:create_user, workflow_id: workflow.id, input: { password: 'asdf' })
+        }.to change { Bemi::StepInstance.count }.by(1)
 
-        action_instance = Bemi::ActionInstance.order(finished_at: :desc).first
-        expect(action_instance.id).to be_a(String)
-        expect(action_instance.name).to eq('create_user')
-        expect(action_instance.logs).to eq(nil)
-        expect(action_instance.state).to eq('completed')
-        expect(action_instance.workflow_instance_id).to eq(workflow.id)
-        expect(action_instance.input).to eq(password: 'asdf')
-        expect(action_instance.retry_count).to eq(0)
-        expect(action_instance.started_at).to be_a(Time)
-        expect(action_instance.finished_at).to be_a(Time)
-        expect(action_instance.context).to eq(tags: %w[around_perform1 around_perform2 perform])
-        expect(action_instance.output).to eq([id: 'id'])
+        step_instance = Bemi::StepInstance.order(finished_at: :desc).first
+        expect(step_instance.id).to be_a(String)
+        expect(step_instance.name).to eq('create_user')
+        expect(step_instance.logs).to eq(nil)
+        expect(step_instance.state).to eq('completed')
+        expect(step_instance.workflow_instance_id).to eq(workflow.id)
+        expect(step_instance.input).to eq(password: 'asdf')
+        expect(step_instance.retry_count).to eq(0)
+        expect(step_instance.started_at).to be_a(Time)
+        expect(step_instance.finished_at).to be_a(Time)
+        expect(step_instance.context).to eq(tags: %w[around_perform1 around_perform2 perform])
+        expect(step_instance.output).to eq([id: 'id'])
       end
 
       it 'returns the output' do
         workflow = Bemi.perform_workflow(:sync_registration, context: { email: 'email@example.com' })
-        output = Bemi.perform_action(:create_user, workflow_id: workflow.id, input: { password: 'asdf' })
+        output = Bemi.perform_step(:create_user, workflow_id: workflow.id, input: { password: 'asdf' })
 
         expect(output).to eq([id: 'id'])
       end
 
-      it 'complete the workflow if all actions are completed' do
-        workflow = Bemi.perform_workflow(:single_action)
+      it 'complete the workflow if all steps are completed' do
+        workflow = Bemi.perform_workflow(:single_step)
 
         expect {
-          Bemi.perform_action(:confirm_email_address, workflow_id: workflow.id)
+          Bemi.perform_step(:confirm_email_address, workflow_id: workflow.id)
         }.to change { workflow.reload.state }.from('pending').to('completed')
 
         expect(workflow.context).to eq(confirmed: true)
@@ -78,40 +78,40 @@ RSpec.describe Bemi::Runner do
         workflow = Bemi.perform_workflow(:sync_registration, context: { email: 'email@example.com' })
 
         expect {
-          Bemi.perform_action(:send_confirmation_email, workflow_id: workflow.id)
-        }.to raise_error(Bemi::Action::CustomFailError)
+          Bemi.perform_step(:send_confirmation_email, workflow_id: workflow.id)
+        }.to raise_error(Bemi::Step::CustomFailError)
 
-        action_instance = Bemi::ActionInstance.order(finished_at: :desc).first
-        expect(action_instance.id).to be_a(String)
-        expect(action_instance.name).to eq('send_confirmation_email')
-        expect(action_instance.logs).to be_a(String)
-        expect(action_instance.state).to eq('failed')
-        expect(action_instance.workflow_instance_id).to eq(workflow.id)
-        expect(action_instance.input).to eq({})
-        expect(action_instance.retry_count).to eq(0)
-        expect(action_instance.started_at).to be_a(Time)
-        expect(action_instance.finished_at).to be_a(Time)
-        expect(action_instance.context).to eq({ email: 'email@example.com', rollbacked: true, around_rollbacked: true })
-        expect(action_instance.output).to eq(nil)
-        expect(action_instance.custom_errors).to eq({ email: 'Invalid email: email@example.com' })
+        step_instance = Bemi::StepInstance.order(finished_at: :desc).first
+        expect(step_instance.id).to be_a(String)
+        expect(step_instance.name).to eq('send_confirmation_email')
+        expect(step_instance.logs).to be_a(String)
+        expect(step_instance.state).to eq('failed')
+        expect(step_instance.workflow_instance_id).to eq(workflow.id)
+        expect(step_instance.input).to eq({})
+        expect(step_instance.retry_count).to eq(0)
+        expect(step_instance.started_at).to be_a(Time)
+        expect(step_instance.finished_at).to be_a(Time)
+        expect(step_instance.context).to eq({ email: 'email@example.com', rollbacked: true, around_rollbacked: true })
+        expect(step_instance.output).to eq(nil)
+        expect(step_instance.custom_errors).to eq({ email: 'Invalid email: email@example.com' })
       end
 
       it 'marks the workflow as failed' do
         workflow = Bemi.perform_workflow(:sync_registration, context: { email: 'email@example.com' })
 
         expect {
-          Bemi.perform_action(:send_confirmation_email, workflow_id: workflow.id)
-        }.to raise_error(Bemi::Action::CustomFailError)
+          Bemi.perform_step(:send_confirmation_email, workflow_id: workflow.id)
+        }.to raise_error(Bemi::Step::CustomFailError)
 
         expect(workflow.reload.state).to eq('failed')
       end
 
-      it 'fails if still waits for another action' do
+      it 'fails if still waits for another step' do
         workflow = Bemi.perform_workflow(:sync_registration, context: { email: 'email@example.com', remember_me: true })
 
         expect {
-          Bemi.perform_action(:confirm_email_address, workflow_id: workflow.id)
-        }.to raise_error(Bemi::Runner::WaitingForActionError, "Waiting for actions: 'send_confirmation_email'")
+          Bemi.perform_step(:confirm_email_address, workflow_id: workflow.id)
+        }.to raise_error(Bemi::Runner::WaitingForStepError, "Waiting for steps: 'send_confirmation_email'")
       end
     end
 
@@ -120,7 +120,7 @@ RSpec.describe Bemi::Runner do
         workflow = Bemi.perform_workflow(:sync_registration, context: { email: 'email@example.com' })
 
         expect {
-          Bemi.perform_action(:create_user, workflow_id: workflow.id, input: { foo: 'bar' })
+          Bemi.perform_step(:create_user, workflow_id: workflow.id, input: { foo: 'bar' })
         }.to raise_error(Bemi::Runner::InvalidInput, "The value did not contain a required field of 'password'")
       end
     end

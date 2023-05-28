@@ -2,7 +2,7 @@
 
 class Bemi::Workflow
   InvalidConcurrencyOptionError = Class.new(StandardError)
-  InvalidActionDefinitionError = Class.new(StandardError)
+  InvalidStepDefinitionError = Class.new(StandardError)
 
   ON_CONFLICT_RAISE = 'raise'
   ON_CONFLICT_REJECT = 'reject'
@@ -16,7 +16,7 @@ class Bemi::Workflow
     required: %i[limit on_conflict],
   }
 
-  ACTION_SCHEMA = {
+  STEP_SCHEMA = {
     type: :object,
     properties: {
       sync: { type: :boolean },
@@ -75,7 +75,7 @@ class Bemi::Workflow
     def definition
       {
         name: @workflow_name.to_s,
-        actions: actions,
+        steps: steps,
         concurrency: @concurrency_options,
         context_schema: @context_schema,
       }
@@ -83,8 +83,8 @@ class Bemi::Workflow
 
     private
 
-    def actions
-      self.new.actions
+    def steps
+      self.new.steps
     end
 
     def validate_concurrency_options!(concurrency_options)
@@ -94,12 +94,12 @@ class Bemi::Workflow
   end
 
   def initialize
-    @actions = []
+    @steps = []
   end
 
-  def actions
+  def steps
     perform
-    @actions
+    @steps
   end
 
   def perform
@@ -108,32 +108,32 @@ class Bemi::Workflow
 
   private
 
-  def action(action_name, action_options)
-    validate_action_options!(action_name, action_options)
+  def step(step_name, step_options)
+    validate_step_options!(step_name, step_options)
 
-    @actions << {
-      name: action_name.to_s,
-      sync: action_options[:sync],
-      wait_for: action_options[:wait_for]&.map(&:to_s),
-      async: action_options[:async],
-      on_error: action_options[:on_error],
-      concurrency: action_options[:concurrency],
+    @steps << {
+      name: step_name.to_s,
+      sync: step_options[:sync],
+      wait_for: step_options[:wait_for]&.map(&:to_s),
+      async: step_options[:async],
+      on_error: step_options[:on_error],
+      concurrency: step_options[:concurrency],
     }
   end
 
-  def validate_action_options!(action_name, action_options)
-    errors = Bemi::Validator.validate(action_options, ACTION_SCHEMA)
-    raise Bemi::Workflow::InvalidActionDefinitionError, errors.first if errors.any?
+  def validate_step_options!(step_name, step_options)
+    errors = Bemi::Validator.validate(step_options, STEP_SCHEMA)
+    raise Bemi::Workflow::InvalidStepDefinitionError, errors.first if errors.any?
 
-    if action_options[:sync].nil? && action_options[:async].nil?
-      raise Bemi::Workflow::InvalidActionDefinitionError, "Action '#{action_name}' must be either 'sync' or 'async'"
+    if step_options[:sync].nil? && step_options[:async].nil?
+      raise Bemi::Workflow::InvalidStepDefinitionError, "Step '#{step_name}' must be either 'sync' or 'async'"
     end
 
-    if action_options[:wait_for]
-      unknown_action_names = action_options.fetch(:wait_for).select { |action_name| @actions.none? { |action| action.fetch(:name) == action_name.to_s } }
-      return if unknown_action_names.empty?
+    if step_options[:wait_for]
+      unknown_step_names = step_options.fetch(:wait_for).select { |step_name| @steps.none? { |step| step.fetch(:name) == step_name.to_s } }
+      return if unknown_step_names.empty?
 
-      raise Bemi::Workflow::InvalidActionDefinitionError, "Action '#{action_name}' waits for unknown action names: #{unknown_action_names.map { |a| "'#{a}'" }.join(', ')}"
+      raise Bemi::Workflow::InvalidStepDefinitionError, "Step '#{step_name}' waits for unknown step names: #{unknown_step_names.map { |a| "'#{a}'" }.join(', ')}"
     end
   end
 end

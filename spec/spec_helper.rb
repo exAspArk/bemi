@@ -12,7 +12,7 @@ Bemi.configure do |config|
   config.background_job_parent_class = 'ActiveJob::Base'
 end
 Bemi::Registrator.sync_workflows!(Dir.glob('spec/fixtures/workflows/**/*.rb'))
-Dir.glob('spec/fixtures/actions/**/*.rb').each { |file| require "./#{file}" }
+Dir.glob('spec/fixtures/steps/**/*.rb').each { |file| require "./#{file}" }
 
 ActiveJob::Base.queue_adapter = :test
 
@@ -31,7 +31,7 @@ RSpec.configure do |config|
 
   config.before do
     Bemi::ApplicationRecord.connection.truncate(Bemi::WorkflowInstance.table_name)
-    Bemi::ApplicationRecord.connection.truncate(Bemi::ActionInstance.table_name)
+    Bemi::ApplicationRecord.connection.truncate(Bemi::StepInstance.table_name)
     clear_enqueued_jobs
     clear_performed_jobs
   end

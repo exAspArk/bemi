@@ -19,16 +19,16 @@ class Bemi::Storage
       :update_workflow_context!,
       :not_finished_workflow_ids,
       :not_finished_workflow_count,
-      # actions
-      :find_action!,
-      :create_action!,
-      :start_action!,
-      :complete_action!,
-      :fail_action!,
-      :incomplete_action_names,
-      :find_actions!,
-      :set_retry_action!,
-      :not_finished_action_count,
+      # steps
+      :find_step!,
+      :create_step!,
+      :start_step!,
+      :complete_step!,
+      :fail_step!,
+      :incomplete_step_names,
+      :find_steps!,
+      :set_retry_step!,
+      :not_finished_step_count,
       # misc
       :transaction
 

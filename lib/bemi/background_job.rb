@@ -17,7 +17,7 @@ class Bemi::BackgroundJob
        @background_job_class ||=
         if Bemi::Config.configuration.fetch(:background_job_adapter) == Bemi::Config::BACKGROUND_JOB_ADAPTER_ACTIVE_JOB
           require_relative 'background_job/active_job'
-          Bemi::ActionJob
+          Bemi::StepJob
         end
     end
   end

@@ -1,4 +1,4 @@
-class CreateUserAction < Bemi::Action
+class CreateUserStep < Bemi::Step
   name :create_user
 
   input :object do

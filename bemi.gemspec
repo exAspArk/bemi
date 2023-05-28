@@ -9,7 +9,7 @@ Gem::Specification.new do |spec|
   spec.email = ["exaspark@gmail.com"]
 
   spec.summary = "Ruby framework for managing code workflows."
-  spec.description = "Bemi allows to describe and chain multiple actions similarly to function pipelines, have the execution reliability of a background job framework, unlock full visibility into business and infrastructure processes, distribute workload and implementation across multiple services as simply as running everything in the monolith."
+  spec.description = "Bemi allows to describe and chain multiple steps similarly to function pipelines, have the execution reliability of a background job framework, unlock full visibility into business and infrastructure processes, distribute workload and implementation across multiple services as simply as running everything in the monolith."
   spec.homepage = "https://github.com/exAspArk/bemi"
   spec.license = "MIT"
   spec.required_ruby_version = ">= 2.6.0"

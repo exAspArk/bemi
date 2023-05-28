@@ -35,13 +35,13 @@ end
 
 # t.uuid :id, primary_key: true
 # t.string :name, null: false, index: { unique: true }
-# t.json :actions, null: false
+# t.json :steps, null: false
 # t.json :concurrency
 # t.json :context_schema
 class Bemi::WorkflowDefinition < Bemi::ApplicationRecord
   self.table_name = 'bemi_workflow_definitions'
 
-  serialize :actions, CustomJsonSerializer
+  serialize :steps, CustomJsonSerializer
   serialize :concurrency, CustomJsonSerializer
   serialize :context_schema, CustomJsonSerializer
 end
@@ -104,7 +104,7 @@ end
 # t.string :name, null: false, index: true
 # t.string :state, null: false, index: true
 # t.uuid :workflow_instance_id, null: false, index: true
-# t.uuid :retry_action_instance_id, index: true
+# t.uuid :retry_step_instance_id, index: true
 # t.integer :retry_count, null: false, default: 0
 # t.json :input
 # t.json :output
@@ -115,8 +115,8 @@ end
 # t.timestamp :run_at
 # t.timestamp :started_at
 # t.timestamp :finished_at
-class Bemi::ActionInstance < Bemi::ApplicationRecord
-  self.table_name = 'bemi_action_instances'
+class Bemi::StepInstance < Bemi::ApplicationRecord
+  self.table_name = 'bemi_step_instances'
 
   STATE_PENDING = 'pending'
   STATE_RUNNING = 'running'
@@ -132,7 +132,7 @@ class Bemi::ActionInstance < Bemi::ApplicationRecord
   serialize :custom_errors, CustomJsonSerializer
 
   belongs_to :workflow, class_name: 'Bemi::WorkflowInstance', foreign_key: :workflow_instance_id
-  belongs_to :retry_action, class_name: 'Bemi::ActionInstance', foreign_key: :retry_action_instance_id, optional: true
+  belongs_to :retry_step, class_name: 'Bemi::StepInstance', foreign_key: :retry_step_instance_id, optional: true
 
   def pending?
     state == STATE_PENDING
@@ -165,6 +165,8 @@ end
 class Bemi::Storage::ActiveRecord
   class << self
     def upsert_workflow_definitions!(workflow_definitions)
+      return if workflow_definitions.blank?
+
       Bemi::WorkflowDefinition.upsert_all(
         workflow_definitions.map { |w| w.merge(id: SecureRandom.uuid) },
         unique_by: :name,
@@ -217,14 +219,14 @@ class Bemi::Storage::ActiveRecord
       Bemi::WorkflowInstance.not_finished.where(concurrency_key: concurrency_key).count
     end
 
-    def find_action!(id)
-      Bemi::ActionInstance.find(id)
+    def find_step!(id)
+      Bemi::StepInstance.find(id)
     end
 
-    def create_action!(action_name, workflow_id:, input: nil, retry_count: 0, concurrency_key: nil)
-      Bemi::ActionInstance.create!(
-        name: action_name,
-        state: Bemi::ActionInstance::STATE_PENDING,
+    def create_step!(step_name, workflow_id:, input: nil, retry_count: 0, concurrency_key: nil)
+      Bemi::StepInstance.create!(
+        name: step_name,
+        state: Bemi::StepInstance::STATE_PENDING,
         workflow_instance_id: workflow_id,
         input: input,
         retry_count: retry_count,
@@ -232,46 +234,46 @@ class Bemi::Storage::ActiveRecord
       )
     end
 
-    def start_action!(action)
-      action.update!(state: Bemi::ActionInstance::STATE_RUNNING, started_at: Time.current)
-      action.workflow.update!(state: Bemi::WorkflowInstance::STATE_RUNNING) if action.workflow.pending?
+    def start_step!(step)
+      step.update!(state: Bemi::StepInstance::STATE_RUNNING, started_at: Time.current)
+      step.workflow.update!(state: Bemi::WorkflowInstance::STATE_RUNNING) if step.workflow.pending?
     end
 
-    def complete_action!(action, context:, output:)
-      action.update!(
-        state: Bemi::ActionInstance::STATE_COMPLETED,
+    def complete_step!(step, context:, output:)
+      step.update!(
+        state: Bemi::StepInstance::STATE_COMPLETED,
         finished_at: Time.current,
         context: context,
         output: output,
       )
     end
 
-    def fail_action!(action, context:, custom_errors:, logs:, retry_action_id: nil)
-      action.update!(
-        state: Bemi::ActionInstance::STATE_FAILED,
+    def fail_step!(step, context:, custom_errors:, logs:, retry_step_id: nil)
+      step.update!(
+        state: Bemi::StepInstance::STATE_FAILED,
         finished_at: Time.current,
         custom_errors: custom_errors,
         context: context,
         logs: logs,
-        retry_action_instance_id: retry_action_id,
+        retry_step_instance_id: retry_step_id,
       )
     end
 
-    def set_retry_action!(action, retry_action_id:)
-      action.update!(retry_action_instance_id: retry_action_id)
+    def set_retry_step!(step, retry_step_id:)
+      step.update!(retry_step_instance_id: retry_step_id)
     end
 
-    def find_actions!(workflow_id)
-      Bemi::ActionInstance.where(workflow_instance_id: workflow_id)
+    def find_steps!(workflow_id)
+      Bemi::StepInstance.where(workflow_instance_id: workflow_id)
     end
 
-    def not_finished_action_count(concurrency_key)
-      Bemi::ActionInstance.not_finished.where(concurrency_key: concurrency_key).count
+    def not_finished_step_count(concurrency_key)
+      Bemi::StepInstance.not_finished.where(concurrency_key: concurrency_key).count
     end
 
-    def incomplete_action_names(action_names, workflow_id)
-      completed_action_names = Bemi::ActionInstance.where(name: action_names, workflow_instance_id: workflow_id, state: Bemi::ActionInstance::STATE_COMPLETED).pluck(:name)
-      action_names - completed_action_names
+    def incomplete_step_names(step_names, workflow_id)
+      completed_step_names = Bemi::StepInstance.where(name: step_names, workflow_instance_id: workflow_id, state: Bemi::StepInstance::STATE_COMPLETED).pluck(:name)
+      step_names - completed_step_names
     end
 
     def transaction(&block)

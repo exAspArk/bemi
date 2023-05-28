@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require_relative 'bemi/modules/schemable'
-require_relative 'bemi/action'
+require_relative 'bemi/step'
 require_relative 'bemi/background_job'
 require_relative 'bemi/config'
 require_relative 'bemi/registrator'
@@ -27,8 +27,8 @@ class Bemi
       Bemi::Runner.perform_workflow(workflow_name, context: context)
     end
 
-    def perform_action(action_name, workflow_id:, input: {})
-      Bemi::Runner.perform_action(action_name, workflow_id: workflow_id, input: input)
+    def perform_step(step_name, workflow_id:, input: {})
+      Bemi::Runner.perform_step(step_name, workflow_id: workflow_id, input: input)
     end
   end
 end

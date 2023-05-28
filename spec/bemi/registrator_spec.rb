@@ -9,11 +9,11 @@ RSpec.describe Bemi::Registrator do
     end
   end
 
-  describe '.add_action' do
-    it 'raises an error if the action name is already registered' do
+  describe '.add_step' do
+    it 'raises an error if the step name is already registered' do
       expect {
-        Bemi::Registrator.add_action(:create_user, CreateUserAction)
-      }.to raise_error(Bemi::Registrator::DuplicateActionNameError, "Action 'create_user' is already registered")
+        Bemi::Registrator.add_step(:create_user, CreateUserStep)
+      }.to raise_error(Bemi::Registrator::DuplicateStepNameError, "Step 'create_user' is already registered")
     end
   end
 
@@ -24,19 +24,19 @@ RSpec.describe Bemi::Registrator do
       expect(result).to match([
         {
           name: 'async_registration',
-          actions: an_instance_of(Array),
+          steps: an_instance_of(Array),
           concurrency: nil,
           context_schema: nil,
         },
         {
-          name: 'single_action',
-          actions: an_instance_of(Array),
+          name: 'single_step',
+          steps: an_instance_of(Array),
           concurrency: nil,
           context_schema: nil,
         },
         {
           name: 'sync_registration',
-          actions: an_instance_of(Array),
+          steps: an_instance_of(Array),
           concurrency: an_instance_of(Hash),
           context_schema: an_instance_of(Hash),
         },
