@@ -9,8 +9,25 @@ class SyncRegistrationWorkflow < Bemi::Workflow
   end
 
   def perform
-    step :create_user, sync: true
-    step :send_confirmation_email, sync: true
-    step :confirm_email_address, sync: true, wait_for: [:send_confirmation_email]
+    step :create_user do
+      sync true
+
+      input :object do
+        field :password, :string, required: true
+      end
+
+      output array: :object do
+        field :id, :string
+      end
+    end
+
+    step :send_confirmation_email do
+      sync true
+    end
+
+    step :confirm_email_address do
+      sync true
+      wait_for [:send_confirmation_email]
+    end
   end
 end

@@ -46,10 +46,24 @@ class OrderWorkflow < Bemi::Workflow
   name :order
 
   def perform
-    step :process_payment, sync: true
-    step :send_confirmation, wait_for: [:process_payment], async: { queue: 'default' }
-    step :ship_package, wait_for: [:process_payment], async: { queue: 'warehouse' }
-    step :request_feedback, wait_for: [:ship_package], async: { queue: 'default', delay: 7.days.to_i }
+    step :process_payment do
+      sync true
+    end
+
+    step :send_confirmation do
+      wait_for [:process_payment]
+      async queue: 'default'
+    end
+
+    step :ship_package do
+      wait_for [:process_payment]
+      async queue: 'warehouse'
+    end
+
+    step :request_feedback do
+      wait_for [:ship_package]
+      async queue: 'default', delay: 7.days.to_i
+    end
   end
 end
 ```
@@ -226,9 +240,19 @@ class RegistrationWorkflow < Bemi::Workflow
   name :registration
 
   def perform
-    step :create_user, async: { queue: 'default' }
-    step :send_welcome_email, wait_for: [:create_user], async: { queue: 'default' }
-    step :run_background_check, wait_for: [:send_welcome_email], async: { queue: 'kyc' }
+    step :create_user do
+      async queue: 'default'
+    end
+
+    step :send_welcome_email do
+      wait_for [:create_user]
+      async queue: 'default'
+    end
+
+    step :run_background_check do
+      wait_for [:send_welcome_email]
+      async queue: 'kyc'
+    end
   end
 end
 
@@ -242,9 +266,17 @@ class RegistrationWorkflow < Bemi::Workflow
   name :registration
 
   def perform
-    step :create_user, async: { queue: 'default', cron: '0 2 * * *' } # daily at 2am
-    step :send_welcome_email, async: { queue: 'emails', cron: '0 3 * * *', priority: 10 }
-    step :run_background_check, async: { queue: 'default', delay: 24.hours.to_i },
+    step :create_user do
+      async queue: 'default', cron: '0 2 * * *' # daily at 2am
+    end
+
+    step :send_welcome_email do
+      async queue: 'emails', cron: '0 3 * * *', priority: 10
+    end
+
+    step :run_background_check do
+      async queue: 'default', delay: 24.hours.to_i
+    end
   end
 end
 
@@ -258,9 +290,20 @@ class RegistrationWorkflow < Bemi::Workflow
   name :registration
 
   def perform
-    step :create_user, sync: true
-    step :send_confirmation_email, sync: true
-    step :confirm_email_address, sync: true
+    step :create_user do
+      sync true
+      description 'Create user'
+    end
+
+    step :send_confirmation_email do
+      sync true
+      description 'Send confirmation email'
+    end
+
+    step :confirm_email_address do
+      sync true
+      description 'Confirm email address'
+    end
   end
 end
 
@@ -320,24 +363,40 @@ workflow.context
 
 #### Step validation
 
-Bemi allows to define and validate the shape of steps' inputs, context, and output
+Bemi allows to define and validate the shape of steps' inputs/output and context/custom_errors:
 
 ```ruby
+
+class RegistrationWorkflow < Bemi::Workflow
+  name :registration
+
+  def perform
+    step :create_user do
+      sync true
+
+      input :object do
+        field :email, :string, required: true
+        field :password, :string, required: true
+      end
+
+      output :object do
+        field :user_id, :integer, required: true
+      end
+    end
+  end
+end
+
 class Registration::CreateUserStep < Bemi::Step
   name :create_user
-
-  input :object do
-    field :email, :string, required: true
-    field :password, :string, required: true
-  end
 
   context array: :object do
     field :onboarding_step, :string
     field :completed, :boolean
   end
 
-  output :object do
-    field :user_id, :integer, required: true
+  custom_errors :object do
+    field :attribute, :string
+    field :error, :string
   end
 end
 ```
@@ -351,8 +410,14 @@ class RegistrationWorkflow < Bemi::Workflow
   name :registration
 
   def perform
-    step :create_user, async: { queue: 'default' }
-    step :send_welcome_email, async: { queue: 'default' }, on_error: { retry: 1 }
+    step :create_user do
+      async queue: 'default'
+    end
+
+    step :send_welcome_email do
+      async queue: 'default'
+      on_error retry: 1
+    end
   end
 end
 ```
@@ -434,7 +499,10 @@ class RegistrationWorkflow < Bemi::Workflow
   name :registration
 
   def perform
-    step :create_user, async: { queue: 'default' }, concurrency: { limit: 1, on_conflict: :reschedule }
+    step :create_user do
+      async queue: 'default'
+      concurrency limit: 1, on_conflict: :reschedule
+    end
   end
 end
 ```

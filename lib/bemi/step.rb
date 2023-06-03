@@ -21,16 +21,16 @@ class Bemi::Step
       Bemi::Registrator.add_step(step_name, self)
     end
 
-    def input(type, options = {}, &block)
-      @input_schema = build_schema(type, options, &block)
-    end
-
     def context(type, options = {}, &block)
       @context_schema = build_schema(type, options, &block)
     end
 
     def custom_errors(type, options = {}, &block)
       @custom_errors_schema = build_schema(type, options, &block)
+    end
+
+    def input(type, options = {}, &block)
+      @input_schema = build_schema(type, options, &block)
     end
 
     def output(type, options = {}, &block)

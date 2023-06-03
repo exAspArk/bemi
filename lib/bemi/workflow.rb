@@ -108,17 +108,31 @@ class Bemi::Workflow
 
   private
 
-  def step(step_name, step_options)
-    validate_step_options!(step_name, step_options)
+  def step(step_name, &block)
+    @current_step_options = { name: step_name.to_s }
+    block.call
+    validate_step_options!(step_name, @current_step_options)
+    @steps << @current_step_options
+  end
 
-    @steps << {
-      name: step_name.to_s,
-      sync: step_options[:sync],
-      wait_for: step_options[:wait_for]&.map(&:to_s),
-      async: step_options[:async],
-      on_error: step_options[:on_error],
-      concurrency: step_options[:concurrency],
-    }
+  def sync(value)
+    @current_step_options[:sync] = value
+  end
+
+  def wait_for(step_names)
+    @current_step_options[:wait_for] = step_names.map(&:to_s)
+  end
+
+  def async(options)
+    @current_step_options[:async] = options
+  end
+
+  def on_error(options)
+    @current_step_options[:on_error] = options
+  end
+
+  def concurrency(options)
+    @current_step_options[:concurrency] = options
   end
 
   def validate_step_options!(step_name, step_options)
@@ -130,7 +144,7 @@ class Bemi::Workflow
     end
 
     if step_options[:wait_for]
-      unknown_step_names = step_options.fetch(:wait_for).select { |step_name| @steps.none? { |step| step.fetch(:name) == step_name.to_s } }
+      unknown_step_names = step_options.fetch(:wait_for).select { |step_name| @steps.none? { |step| step.fetch(:name) == step_name } }
       return if unknown_step_names.empty?
 
       raise Bemi::Workflow::InvalidStepDefinitionError, "Step '#{step_name}' waits for unknown step names: #{unknown_step_names.map { |a| "'#{a}'" }.join(', ')}"

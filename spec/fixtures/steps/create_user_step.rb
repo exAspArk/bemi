@@ -1,16 +1,8 @@
 class CreateUserStep < Bemi::Step
   name :create_user
 
-  input :object do
-    field :password, :string, required: true
-  end
-
   context :object do
     field :tags, array: :string
-  end
-
-  output array: :object do
-    field :id, :string
   end
 
   around_perform :test_around_perform1
